@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>National Walkability Index Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", "Palatino Linotype", "Palatino", serif;
+            max-width: 900px;
+            margin: 2em auto;
+            padding: 0 1em;
+            line-height: 1.5;
+            background: #fffff8;
+            color: #111;
+        }
+        
+        .chart {
+            background: #fffff8;
+        }
+        
+        .axis path,
+        .axis line {
+            stroke: #666;
+            stroke-width: 0.5px;
+        }
+        
+        .axis text {
+            font-size: 10px;
+            fill: #666;
+        }
+        
+        .title {
+            font-size: 20px;
+            font-weight: normal;
+            margin-bottom: 0.5em;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 2em;
+        }
+        
+        .note {
+            font-size: 12px;
+            color: #666;
+            font-style: italic;
+            margin-top: 1em;
+        }
+        
+        .sparkline {
+            fill: none;
+            stroke: #000;
+            stroke-width: 0.5px;
+        }
+        
+        .small-multiple {
+            display: inline-block;
+            margin: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">National Walkability Index</h1>
+    <div class="subtitle">A visualization of walkability metrics across the United States</div>
+    
+    <div id="visualization"></div>
+    
+    <div class="note">
+        Note: This visualization represents a sample of the National Walkability Index data. 
+        The actual data is stored in an Esri geodatabase format (.gdb) containing detailed 
+        geographic and walkability metrics for areas across the United States.
+    </div>
+    
+    <script>
+    // Since we don't have direct access to the .gdb data, this is a placeholder
+    // that would normally be populated with real data
+    const sampleData = {
+        metrics: [
+            { region: "Urban Core", 
+              walkability: 0.85,
+              components: {
+                  intersection_density: 0.9,
+                  proximity_to_transit: 0.8,
+                  employment_mix: 0.85,
+                  housing_density: 0.85
+              }
+            },
+            { region: "Inner Suburb", 
+              walkability: 0.65,
+              components: {
+                  intersection_density: 0.7,
+                  proximity_to_transit: 0.6,
+                  employment_mix: 0.65,
+                  housing_density: 0.65
+              }
+            },
+            { region: "Outer Suburb", 
+              walkability: 0.45,
+              components: {
+                  intersection_density: 0.5,
+                  proximity_to_transit: 0.4,
+                  employment_mix: 0.45,
+                  housing_density: 0.45
+              }
+            },
+            { region: "Rural", 
+              walkability: 0.25,
+              components: {
+                  intersection_density: 0.3,
+                  proximity_to_transit: 0.2,
+                  employment_mix: 0.25,
+                  housing_density: 0.25
+              }
+            }
+        ]
+    };
+
+    // Set up dimensions
+    const margin = {top: 40, right: 40, bottom: 40, left: 60};
+    const width = 800 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
+
+    // Create SVG
+    const svg = d3.select("#visualization")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Set up scales
+    const x = d3.scaleBand()
+        .range([0, width])
+        .padding(0.1);
+
+    const y = d3.scaleLinear()
+        .range([height, 0]);
+
+    // Set domains
+    x.domain(sampleData.metrics.map(d => d.region));
+    y.domain([0, 1]);
+
+    // Add axes
+    svg.append("g")
+        .attr("class", "axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+
+    svg.append("g")
+        .attr("class", "axis")
+        .call(d3.axisLeft(y)
+            .ticks(5)
+            .tickFormat(d3.format(".1f")));
+
+    // Add bars
+    svg.selectAll(".bar")
+        .data(sampleData.metrics)
+        .enter()
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.region))
+        .attr("width", x.bandwidth())
+        .attr("y", d => y(d.walkability))
+        .attr("height", d => height - y(d.walkability))
+        .attr("fill", "#666")
+        .attr("opacity", 0.8);
+
+    // Add small multiples for components
+    const componentNames = Object.keys(sampleData.metrics[0].components);
+    const smallWidth = 150;
+    const smallHeight = 50;
+
+    componentNames.forEach((component, i) => {
+        const smallSvg = d3.select("#visualization")
+            .append("div")
+            .attr("class", "small-multiple")
+            .append("svg")
+            .attr("width", smallWidth)
+            .attr("height", smallHeight);
+
+        const smallX = d3.scalePoint()
+            .range([0, smallWidth])
+            .domain(sampleData.metrics.map(d => d.region));
+
+        const smallY = d3.scaleLinear()
+            .range([smallHeight, 0])
+            .domain([0, 1]);
+
+        const line = d3.line()
+            .x(d => smallX(d.region))
+            .y(d => smallY(d.components[component]));
+
+        smallSvg.append("path")
+            .datum(sampleData.metrics)
+            .attr("class", "sparkline")
+            .attr("d", line);
+
+        smallSvg.append("text")
+            .attr("x", 0)
+            .attr("y", 10)
+            .attr("font-size", "10px")
+            .text(component.replace(/_/g, ' '));
+    });
+    </script>
+</body>
+</html>

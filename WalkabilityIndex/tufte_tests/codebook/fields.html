@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Data Fields & Definitions | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .codebook-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .fields-container {
+            position: relative;
+        }
+
+        .field-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .field-card:hover {
+            transform: translateX(10px);
+            background: #f0f0f0;
+        }
+
+        .field-name {
+            font-family: monospace;
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .field-type {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .field-description {
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .distribution-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+            height: fit-content;
+        }
+
+        .distribution-title {
+            font-size: 1.1em;
+            margin: 0 0 1rem 0;
+        }
+
+        .sparkline {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .axis line {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .field-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9em;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            margin-bottom: 0.2em;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data Fields & Definitions</h1>
+    <p class="description">
+        The National Walkability Index dataset contains various fields that capture different aspects 
+        of walkability and urban form. This guide explains each field's meaning, type, and typical values.
+    </p>
+
+    <div class="codebook-grid">
+        <div class="fields-container" id="fields"></div>
+        <div class="distribution-container" id="distribution">
+            <h3 class="distribution-title">Field Distribution</h3>
+            <div id="sparkline"></div>
+            <div class="field-stats" id="stats"></div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <a href="../standards/format.html" class="nav-link">← Back to Format</a>
+        <a href="values.html" class="nav-link">Next: Value Ranges →</a>
+    </div>
+
+    <script>
+        // Load data and create visualizations
+        d3.json("../../atlanta_walkability_wgs84.geojson").then(function(data) {
+            // Define field metadata
+            const fields = [
+                {
+                    name: "NatWalkInd",
+                    type: "Float",
+                    description: "National Walkability Index score (0-20)",
+                    key: "NatWalkInd"
+                },
+                {
+                    name: "D3B_Ranked",
+                    type: "Float",
+                    description: "Transit accessibility score (0-10)",
+                    key: "D3B_Ranked"
+                },
+                {
+                    name: "D3B",
+                    type: "Float",
+                    description: "Distance to transit stops",
+                    key: "D3B"
+                },
+                {
+                    name: "D3BN",
+                    type: "Float",
+                    description: "Network density near transit",
+                    key: "D3BN"
+                }
+            ];
+
+            // Create field cards
+            const fieldsContainer = d3.select("#fields");
+            
+            const fieldCards = fieldsContainer.selectAll(".field-card")
+                .data(fields)
+                .enter()
+                .append("div")
+                .attr("class", "field-card")
+                .on("mouseover", function(event, d) {
+                    updateDistribution(d);
+                });
+
+            fieldCards.append("h3")
+                .attr("class", "field-name")
+                .text(d => d.name);
+
+            fieldCards.append("div")
+                .attr("class", "field-type")
+                .text(d => `Type: ${d.type}`);
+
+            fieldCards.append("p")
+                .attr("class", "field-description")
+                .text(d => d.description);
+
+            // Create distribution visualization
+            const margin = {top: 20, right: 20, bottom: 20, left: 20};
+            const width = document.querySelector('.distribution-container').clientWidth - margin.left - margin.right;
+            const height = 100;
+
+            const svg = d3.select("#sparkline")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            function updateDistribution(field) {
+                // Get values for the field
+                const values = data.features.map(f => f.properties[field.key]);
+                
+                // Create scales
+                const x = d3.scaleLinear()
+                    .domain(d3.extent(values))
+                    .range([0, width]);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(values)])
+                    .range([height, 0]);
+
+                // Create line generator
+                const line = d3.line()
+                    .x((d, i) => x(d))
+                    .y(d => y(d))
+                    .curve(d3.curveBasis);
+
+                // Update sparkline
+                svg.selectAll("*").remove();
+
+                svg.append("path")
+                    .datum(values)
+                    .attr("class", "sparkline")
+                    .attr("d", line);
+
+                // Add axes
+                svg.append("g")
+                    .attr("class", "axis")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x).ticks(5));
+
+                // Update stats
+                const statsContainer = d3.select("#stats");
+                statsContainer.html("");
+
+                const stats = [
+                    {
+                        label: "Mean",
+                        value: d3.mean(values).toFixed(1)
+                    },
+                    {
+                        label: "Median",
+                        value: d3.median(values).toFixed(1)
+                    },
+                    {
+                        label: "Std Dev",
+                        value: d3.deviation(values).toFixed(1)
+                    }
+                ];
+
+                const statDivs = statsContainer.selectAll(".stat")
+                    .data(stats)
+                    .enter()
+                    .append("div")
+                    .attr("class", "stat");
+
+                statDivs.append("div")
+                    .attr("class", "stat-value")
+                    .text(d => d.value);
+
+                statDivs.append("div")
+                    .attr("class", "stat-label")
+                    .text(d => d.label);
+            }
+
+            // Initialize with first field
+            updateDistribution(fields[0]);
+        });
+    </script>
+</body>
+</html>

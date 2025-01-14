@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Step 2: Patterns | Walkability Data</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .step-container {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .scatter-container {
+            height: 600px;
+            position: relative;
+        }
+
+        .patterns-container {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .pattern {
+            margin-bottom: 2rem;
+        }
+
+        .pattern-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5em 0;
+        }
+
+        .pattern-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .axis line {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        .point {
+            fill: #000;
+            opacity: 0.3;
+        }
+
+        .trend {
+            stroke: #000;
+            stroke-width: 1.5;
+            stroke-dasharray: 4,4;
+        }
+
+        .cluster {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .annotation {
+            font-size: 13px;
+            font-style: italic;
+            fill: #666;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            pointer-events: none;
+            font-size: 0.9em;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .nav-link:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Step 2: Identifying Walkability Patterns</h1>
+    <p class="description">
+        Exploring the relationships between walkability and other urban characteristics reveals 
+        distinct patterns that help us understand how different factors contribute to a neighborhood's 
+        walkability. Here we see how transit access and population density relate to walkability scores.
+    </p>
+
+    <div class="step-container">
+        <div class="scatter-container" id="scatter"></div>
+        <div class="patterns-container" id="patterns"></div>
+    </div>
+
+    <div class="navigation">
+        <a href="step1_overview.html" class="nav-link">← Back to Overview</a>
+        <a href="step3_relationships.html" class="nav-link">Next: Understanding Relationships →</a>
+    </div>
+
+    <script>
+        d3.json("../atlanta_walkability_wgs84.geojson").then(function(data) {
+            // Scatter plot
+            const container = d3.select("#scatter");
+            const width = container.node().clientWidth;
+            const height = 600;
+            const margin = {top: 40, right: 40, bottom: 60, left: 60};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(data.features, d => d.properties.D3B_Ranked)])
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data.features, d => d.properties.NatWalkInd)])
+                .range([innerHeight, 0]);
+
+            // Add points
+            g.selectAll(".point")
+                .data(data.features)
+                .enter()
+                .append("circle")
+                .attr("class", "point")
+                .attr("cx", d => x(d.properties.D3B_Ranked))
+                .attr("cy", d => y(d.properties.NatWalkInd))
+                .attr("r", 3);
+
+            // Add trend line
+            const points = data.features.map(f => ({
+                x: f.properties.D3B_Ranked,
+                y: f.properties.NatWalkInd
+            }));
+
+            const xMean = d3.mean(points, d => d.x);
+            const yMean = d3.mean(points, d => d.y);
+            
+            const slope = d3.sum(points.map(d => (d.x - xMean) * (d.y - yMean))) /
+                         d3.sum(points.map(d => Math.pow(d.x - xMean, 2)));
+            
+            const intercept = yMean - slope * xMean;
+
+            const line = d3.line()
+                .x(d => x(d.x))
+                .y(d => y(slope * d.x + intercept));
+
+            g.append("path")
+                .datum([
+                    {x: 0},
+                    {x: d3.max(points, d => d.x)}
+                ])
+                .attr("class", "trend")
+                .attr("d", line);
+
+            // Add axes
+            g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x).ticks(10));
+
+            g.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y).ticks(10));
+
+            // Add labels
+            g.append("text")
+                .attr("x", innerWidth/2)
+                .attr("y", innerHeight + 40)
+                .attr("text-anchor", "middle")
+                .text("Transit Access Score");
+
+            g.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight/2)
+                .attr("y", -40)
+                .attr("text-anchor", "middle")
+                .text("Walkability Index");
+
+            // Add patterns analysis
+            const patterns = [
+                {
+                    title: "Transit-Rich Urban Core",
+                    description: "Areas with high transit access consistently show higher walkability scores, forming a distinct cluster in the upper right of the plot."
+                },
+                {
+                    title: "Suburban Transition",
+                    description: "A gradual decline in both transit access and walkability marks the transition to suburban areas, visible in the middle range of scores."
+                },
+                {
+                    title: "Car-Dependent Outskirts",
+                    description: "The lower left cluster represents areas with limited transit access and lower walkability, typical of outer suburban regions."
+                }
+            ];
+
+            const patternsContainer = d3.select("#patterns");
+            
+            patternsContainer.selectAll(".pattern")
+                .data(patterns)
+                .enter()
+                .append("div")
+                .attr("class", "pattern")
+                .html(d => `
+                    <h3 class="pattern-title">${d.title}</h3>
+                    <p class="pattern-description">${d.description}</p>
+                `);
+
+            // Add tooltip
+            const tooltip = d3.select("body").append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0);
+
+            g.selectAll(".point")
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .attr("r", 5)
+                        .style("opacity", 1);
+                    
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+                    
+                    tooltip.html(`
+                        Walkability: ${d.properties.NatWalkInd.toFixed(1)}<br/>
+                        Transit Access: ${d.properties.D3B_Ranked.toFixed(1)}
+                    `)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                        .attr("r", 3)
+                        .style("opacity", 0.3);
+                    
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+        });
+    </script>
+</body>
+</html>

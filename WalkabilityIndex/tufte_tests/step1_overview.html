@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Step 1: Overview | Walkability Data</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3-geo.v3.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .step-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .map-container {
+            position: relative;
+            height: 600px;
+        }
+
+        .stats-container {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .stat {
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            margin: 0.2em 0;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .map path {
+            stroke: none;
+        }
+
+        .annotation {
+            font-size: 13px;
+            font-style: italic;
+            fill: #666;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .sparkline {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            pointer-events: none;
+            font-size: 0.9em;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid #ddd;
+            text-align: right;
+        }
+
+        .next-step {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .next-step:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Step 1: Understanding Atlanta's Walkability Landscape</h1>
+    <p class="description">
+        An overview of walkability patterns across Atlanta's census blocks, revealing the spatial 
+        distribution and key statistics that shape the city's pedestrian experience. The data shows 
+        distinct patterns of walkability that align with urban development and transit access.
+    </p>
+
+    <div class="step-container">
+        <div class="map-container" id="map"></div>
+        <div class="stats-container" id="stats"></div>
+    </div>
+
+    <div class="navigation">
+        <a href="step2_patterns.html" class="next-step">Next: Exploring Patterns →</a>
+    </div>
+
+    <script>
+        d3.json("../atlanta_walkability_wgs84.geojson").then(function(data) {
+            // Map visualization
+            const mapContainer = d3.select("#map");
+            const width = mapContainer.node().clientWidth;
+            const height = 600;
+
+            const svg = mapContainer.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Create projection
+            const projection = d3.geoMercator()
+                .fitSize([width, height], data);
+
+            const path = d3.geoPath().projection(projection);
+
+            // Create color scale
+            const walkabilityExtent = d3.extent(data.features, d => d.properties.NatWalkInd);
+            const colorScale = d3.scaleSequential()
+                .domain(walkabilityExtent)
+                .interpolator(d3.interpolateViridis);
+
+            // Add census blocks
+            svg.selectAll("path")
+                .data(data.features)
+                .enter()
+                .append("path")
+                .attr("d", path)
+                .attr("fill", d => colorScale(d.properties.NatWalkInd))
+                .attr("opacity", 0.8);
+
+            // Calculate and display statistics
+            const statsContainer = d3.select("#stats");
+            
+            // Calculate key statistics
+            const walkabilityValues = data.features.map(f => f.properties.NatWalkInd);
+            const stats = [
+                {
+                    label: "Median Walkability Score",
+                    value: d3.median(walkabilityValues).toFixed(1)
+                },
+                {
+                    label: "Census Blocks Analyzed",
+                    value: data.features.length.toLocaleString()
+                },
+                {
+                    label: "High Walkability Areas",
+                    value: data.features.filter(f => 
+                        f.properties.NatWalkInd > d3.quantile(walkabilityValues, 0.75)
+                    ).length.toLocaleString()
+                },
+                {
+                    label: "Distribution",
+                    type: "sparkline",
+                    values: walkabilityValues
+                }
+            ];
+
+            // Add statistics
+            const statDivs = statsContainer.selectAll(".stat")
+                .data(stats)
+                .enter()
+                .append("div")
+                .attr("class", "stat");
+
+            statDivs.each(function(d) {
+                const div = d3.select(this);
+                
+                if (d.type === "sparkline") {
+                    const sparklineWidth = 200;
+                    const sparklineHeight = 50;
+                    
+                    const x = d3.scaleLinear()
+                        .domain(d3.extent(d.values))
+                        .range([0, sparklineWidth]);
+                    
+                    const y = d3.scaleLinear()
+                        .domain([0, d3.max(d.values)])
+                        .range([sparklineHeight, 0]);
+                    
+                    const line = d3.line()
+                        .x((d, i) => x(d))
+                        .y(d => y(d))
+                        .curve(d3.curveBasis);
+                    
+                    div.append("p")
+                        .attr("class", "stat-label")
+                        .text(d.label);
+                    
+                    const svg = div.append("svg")
+                        .attr("width", sparklineWidth)
+                        .attr("height", sparklineHeight);
+                    
+                    svg.append("path")
+                        .datum(d.values)
+                        .attr("class", "sparkline")
+                        .attr("d", line);
+                } else {
+                    div.append("p")
+                        .attr("class", "stat-value")
+                        .text(d.value);
+                    
+                    div.append("p")
+                        .attr("class", "stat-label")
+                        .text(d.label);
+                }
+            });
+
+            // Add tooltip
+            const tooltip = d3.select("body").append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0);
+
+            svg.selectAll("path")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("opacity", 1);
+                    tooltip.transition()
+                        .duration(200)
+                        .style("opacity", .9);
+                    tooltip.html(`
+                        Walkability Score: ${d.properties.NatWalkInd.toFixed(1)}<br/>
+                        Transit Access: ${d.properties.D3B_Ranked.toFixed(1)}
+                    `)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("opacity", 0.8);
+                    tooltip.transition()
+                        .duration(500)
+                        .style("opacity", 0);
+                });
+        });
+    </script>
+</body>
+</html>

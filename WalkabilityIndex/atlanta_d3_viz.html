@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Atlanta Walkability Index</title>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            background: #f5f5f5;
+            color: #333;
+        }
+        #viz-container {
+            display: flex;
+            height: 100vh;
+        }
+        #map {
+            flex: 2;
+            position: relative;
+            background: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            clip-path: inset(0 0 0 0); /* Enables clean edge */
+        }
+        #sidebar {
+            flex: 1;
+            max-width: 800px; /* Increased to accommodate both panels */
+            padding: 20px;
+            background: #fff;
+            border-left: 1px solid #eee;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-content {
+            display: flex;
+            gap: 20px;
+        }
+        .area-analysis {
+            flex: 1;
+            min-width: 0; /* Allow proper flex shrinking */
+        }
+        .filter-sort {
+            flex: 1;
+            min-width: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 0;
+            border: none;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: 300;
+            color: #333;
+            margin: 5px 0;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .sparkline {
+            height: 30px;
+            width: 100%;
+            margin-top: 5px;
+        }
+        .distribution-chart {
+            height: 60px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .factor-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .factor-card {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .factor-value {
+            font-size: 20px;
+            font-weight: 500;
+            margin: 5px 0;
+        }
+        .factor-label {
+            font-size: 11px;
+            color: #666;
+        }
+        .map-overlay {
+            position: absolute;
+            background: linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%);
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 100px;
+            pointer-events: none;
+        }
+        /* Adjust the walkability layer style */
+        .leaflet-walkability-layer {
+            mix-blend-mode: multiply;
+        }
+        .area {
+            stroke: #fff;
+            stroke-width: 0.3px;
+            transition: all 0.3s;
+        }
+        .area:hover {
+            stroke: #000;
+            stroke-width: 1px;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            padding: 10px;
+            border-radius: 2px;
+            pointer-events: none;
+            font-size: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .comparison-dot {
+            fill: #666;
+        }
+        .axis line, .axis path {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+        .axis text {
+            font-size: 10px;
+            fill: #666;
+        }
+        .small-multiple {
+            display: inline-block;
+            margin: 5px;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .filter-group {
+            margin-bottom: 10px;
+        }
+        .filter-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        select {
+            width: 150px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 2px;
+        }
+        .quartile-box {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            margin-right: 4px;
+        }
+        .trend-line {
+            stroke: #999;
+            stroke-dasharray: 2,2;
+            stroke-width: 0.5;
+        }
+        .annotation {
+            font-size: 11px;
+            fill: #666;
+        }
+        .comparison-chart {
+            margin-top: 10px;
+        }
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+        }
+        .overlay-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .layer-toggle {
+            margin: 5px 0;
+        }
+        .metric-group {
+            margin: 15px 0;
+        }
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .metric-value {
+            font-weight: 500;
+            color: #333;
+        }
+        .slider {
+            width: 100%;
+            margin: 5px 0;
+        }
+        .layer-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        }
+        .viz-container {
+            height: 60px;
+            margin: 10px 0;
+            position: relative;
+        }
+        .walkability-path {
+            fill: none;
+            stroke: #666;
+            stroke-width: 1.5;
+            stroke-linecap: round;
+        }
+        .connectivity-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+            height: 100%;
+        }
+        .connectivity-node {
+            background: #ddd;
+            transition: all 0.2s;
+        }
+        .connectivity-node.active {
+            background: #666;
+        }
+        .transit-rings circle {
+            fill: none;
+            stroke: #666;
+            stroke-width: 2;
+            transition: all 0.2s;
+            opacity: 0.8;
+        }
+        .density-bars {
+            display: flex;
+            align-items: flex-end;
+            height: 100%;
+            gap: 1px;
+        }
+        .density-bar {
+            flex: 1;
+            background: #666;
+            transition: height 0.2s;
+        }
+        .metric-explanation {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+        .legend {
+            font-size: 11px;
+            color: #666;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .legend-symbol {
+            width: 12px;
+            height: 12px;
+            display: inline-block;
+        }
+        .legend-symbol.active {
+            background: #666;
+        }
+        .legend-symbol.inactive {
+            background: #ddd;
+        }
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .toggle-group {
+            display: flex;
+            gap: 4px;
+            margin: 5px 0;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            background: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .toggle-btn:hover {
+            background: #f8f9fa;
+        }
+        .toggle-btn.active {
+            background: #666;
+            color: white;
+            border-color: #666;
+        }
+        .reset-btn {
+            width: 100%;
+            padding: 8px;
+            margin-top: 20px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .reset-btn:hover {
+            background: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div id="viz-container">
+        <div id="map">
+            <div class="layer-controls">
+                <div class="layer-toggle">
+                    <input type="checkbox" id="showBeltline" checked>
+                    <label for="showBeltline">Show Beltline</label>
+                </div>
+                <div class="layer-toggle">
+                    <input type="checkbox" id="showLandmarks" checked>
+                    <label for="showLandmarks">Show Landmarks</label>
+                </div>
+                <div class="layer-toggle">
+                    <input type="checkbox" id="showLabels">
+                    <label for="showLabels">Show Labels</label>
+                </div>
+            </div>
+            <div class="controls">
+                <div class="filter-group">
+                    <div class="filter-label">Color By:</div>
+                    <select id="colorBy">
+                        <option value="NatWalkInd">Walkability Index</option>
+                        <option value="TotPop">Population Density</option>
+                        <option value="D2A_Ranked">Street Intersection Density</option>
+                        <option value="D3B_Ranked">Transit Access</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <div class="filter-label">Filter by Population:</div>
+                    <select id="popFilter">
+                        <option value="all">All Areas</option>
+                        <option value="high">High Population (>1000)</option>
+                        <option value="medium">Medium Population (500-1000)</option>
+                        <option value="low">Low Population (<500)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overlay-controls">
+                <div class="layer-toggle">
+                    <input type="checkbox" id="showBeltline" checked>
+                    <label for="showBeltline">Show Beltline</label>
+                </div>
+                <div class="layer-toggle">
+                    <input type="checkbox" id="showCounties" checked>
+                    <label for="showCounties">Show Counties</label>
+                </div>
+                <div class="layer-toggle">
+                    <input type="checkbox" id="showLandmarks" checked>
+                    <label for="showLandmarks">Show Landmarks</label>
+                </div>
+                <div class="layer-toggle">
+                    <input type="checkbox" id="showLabels" checked>
+                    <label for="showLabels">Show Labels</label>
+                </div>
+            </div>
+        </div>
+        <div id="sidebar">
+            <div class="sidebar-content">
+                <div class="area-analysis">
+                    <h3>Area Analysis</h3>
+                    <div class="metric-grid">
+                        <div class="metric-card primary-metric">
+                            <div class="metric-label">Walkability Score</div>
+                            <div class="metric-value" id="walkability-score">-</div>
+                            <div class="distribution-chart" id="walkability-dist"></div>
+                            <div class="metric-explanation">National Walkability Index (0-20): Higher scores indicate better walkability</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Population</div>
+                            <div class="metric-value" id="population-value">-</div>
+                            <div class="sparkline" id="population-spark"></div>
+                            <div class="metric-explanation">Total population in census block group</div>
+                        </div>
+                    </div>
+                    <div class="factor-grid">
+                        <div class="factor-card">
+                            <div class="factor-label">Street Connectivity</div>
+                            <div class="factor-value" id="connectivity-score">-</div>
+                            <div class="viz-container" id="connectivity-viz"></div>
+                            <div class="legend">
+                                <div class="legend-item">
+                                    <span class="legend-symbol active"></span>
+                                    <span>Connected</span>
+                                </div>
+                                <div class="legend-item">
+                                    <span class="legend-symbol inactive"></span>
+                                    <span>Less Connected</span>
+                                </div>
+                            </div>
+                            <div class="metric-explanation">Intersection density ranked percentile</div>
+                        </div>
+                        <div class="factor-card">
+                            <div class="factor-label">Transit Access</div>
+                            <div class="factor-value" id="transit-score">-</div>
+                            <div class="viz-container" id="transit-viz"></div>
+                            <div class="legend">
+                                <div class="legend-item">
+                                    <svg width="12" height="12" viewBox="0 0 12 12">
+                                        <circle cx="6" cy="6" r="5" fill="none" stroke="#666" stroke-width="2"/>
+                                    </svg>
+                                    <span>Transit Distance</span>
+                                </div>
+                            </div>
+                            <div class="metric-explanation">Distance to transit ranked percentile</div>
+                        </div>
+                        <div class="factor-card">
+                            <div class="factor-label">Density</div>
+                            <div class="factor-value" id="density-score">-</div>
+                            <div class="viz-container" id="density-viz"></div>
+                            <div class="legend">
+                                <div class="legend-item">
+                                    <div style="width: 12px; height: 12px; background: #666;"></div>
+                                    <span>Employment Density</span>
+                                </div>
+                            </div>
+                            <div class="metric-explanation">Employment density ranked percentile</div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="filter-sort">
+                    <h3>Filter & Sort</h3>
+                    <div class="metric-group">
+                        <div class="metric-header">
+                            <span>Walkability</span>
+                            <span class="metric-value" id="walkability-value">All</span>
+                        </div>
+                        <div class="toggle-group" id="walkability-toggle">
+                            <button class="toggle-btn" data-level="low">Low</button>
+                            <button class="toggle-btn" data-level="medium">Medium</button>
+                            <button class="toggle-btn" data-level="high">High</button>
+                        </div>
+                    </div>
+
+                    <div class="metric-group">
+                        <div class="metric-header">
+                            <span>Street Connectivity</span>
+                            <span class="metric-value" id="connectivity-value">All</span>
+                        </div>
+                        <div class="toggle-group" id="connectivity-toggle">
+                            <button class="toggle-btn" data-level="low">Low</button>
+                            <button class="toggle-btn" data-level="medium">Medium</button>
+                            <button class="toggle-btn" data-level="high">High</button>
+                        </div>
+                    </div>
+
+                    <div class="metric-group">
+                        <div class="metric-header">
+                            <span>Transit Access</span>
+                            <span class="metric-value" id="transit-value">All</span>
+                        </div>
+                        <div class="toggle-group" id="transit-toggle">
+                            <button class="toggle-btn" data-level="low">Low</button>
+                            <button class="toggle-btn" data-level="medium">Medium</button>
+                            <button class="toggle-btn" data-level="high">High</button>
+                        </div>
+                    </div>
+
+                    <div class="metric-group">
+                        <div class="metric-header">
+                            <span>Density</span>
+                            <span class="metric-value" id="density-value">All</span>
+                        </div>
+                        <div class="toggle-group" id="density-toggle">
+                            <button class="toggle-btn" data-level="low">Low</button>
+                            <button class="toggle-btn" data-level="medium">Medium</button>
+                            <button class="toggle-btn" data-level="high">High</button>
+                        </div>
+                    </div>
+
+                    <div class="metric-group">
+                        <div class="metric-header">
+                            <span>Population</span>
+                            <span class="metric-value" id="population-value">All</span>
+                        </div>
+                        <div class="toggle-group" id="population-toggle">
+                            <button class="toggle-btn" data-level="low">Low</button>
+                            <button class="toggle-btn" data-level="medium">Medium</button>
+                            <button class="toggle-btn" data-level="high">High</button>
+                        </div>
+                    </div>
+
+                    <button class="reset-btn" id="reset-filters">Reset View</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simple-statistics/7.8.3/simple-statistics.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // Initialize Leaflet map
+        const map = L.map('map').setView([33.7490, -84.3880], 11);
+        
+        // Add OpenStreetMap tiles
+        const baseMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: ' OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add Stamen Labels layer
+        const labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}{r}.png', {
+            attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>'
+        });
+
+        // Define Atlanta Beltline path (approximate coordinates)
+        const beltlinePath = [
+            [33.7634, -84.3951], // Piedmont Park
+            [33.7583, -84.3636], // Ponce City Market
+            [33.7468, -84.3532], // Inman Park
+            [33.7334, -84.3520], // Reynoldstown
+            [33.7246, -84.3687], // Grant Park
+            [33.7246, -84.3897], // West End
+            [33.7895, -84.4087], // Westside
+            [33.7634, -84.3951]  // Back to Piedmont Park
+        ];
+
+        // Create Beltline layer
+        const beltline = L.polyline(beltlinePath, {
+            color: '#FF4400',
+            weight: 4,
+            opacity: 0.8
+        }).addTo(map);
+
+        // Add major landmarks
+        const landmarks = L.layerGroup([
+            L.marker([33.7490, -84.3880]).bindPopup('Downtown Atlanta'),
+            L.marker([33.7634, -84.3951]).bindPopup('Piedmont Park'),
+            L.marker([33.7583, -84.3636]).bindPopup('Ponce City Market'),
+            L.marker([33.7315, -84.3939]).bindPopup('Georgia State University'),
+            L.marker([33.7925, -84.3240]).bindPopup('Lenox Square'),
+            L.marker([33.7537, -84.3863]).bindPopup('Mercedes-Benz Stadium')
+        ]).addTo(map);
+
+        // Load and process walkability data
+        d3.json("atlanta_walkability_wgs84.geojson").then(function(data) {
+            // Calculate data ranges and thresholds for each metric
+            const dataRanges = {
+                walkability: calculateThresholds(data.features.map(f => f.properties.NatWalkInd)),
+                connectivity: calculateThresholds(data.features.map(f => f.properties.D2A_Ranked)),
+                transit: calculateThresholds(data.features.map(f => f.properties.D3B_Ranked)),
+                density: calculateThresholds(data.features.map(f => f.properties.D4A_Ranked)),
+                population: calculateThresholds(data.features.map(f => f.properties.TotPop))
+            };
+
+            function calculateThresholds(values) {
+                const sorted = values.sort((a, b) => a - b);
+                const n = sorted.length;
+                return {
+                    min: sorted[0],
+                    low: sorted[Math.floor(n * 0.33)],
+                    medium: sorted[Math.floor(n * 0.66)],
+                    max: sorted[n - 1]
+                };
+            }
+
+            // Initialize filters object
+            const filters = {
+                walkability: null,
+                connectivity: null,
+                transit: null,
+                density: null,
+                population: null
+            };
+
+            // Setup toggle buttons
+            function setupToggles() {
+                const metrics = ['walkability', 'connectivity', 'transit', 'density', 'population'];
+                
+                metrics.forEach(metric => {
+                    const toggleGroup = document.getElementById(`${metric}-toggle`);
+                    const buttons = toggleGroup.querySelectorAll('.toggle-btn');
+                    
+                    buttons.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            // Toggle active state
+                            if (btn.classList.contains('active')) {
+                                btn.classList.remove('active');
+                                filters[metric] = null;
+                                document.getElementById(`${metric}-value`).textContent = 'All';
+                            } else {
+                                buttons.forEach(b => b.classList.remove('active'));
+                                btn.classList.add('active');
+                                filters[metric] = btn.dataset.level;
+                                document.getElementById(`${metric}-value`).textContent = btn.dataset.level;
+                            }
+                            updateMapData();
+                        });
+                    });
+                });
+
+                // Setup reset button
+                document.getElementById('reset-filters').addEventListener('click', resetFilters);
+            }
+
+            function resetFilters() {
+                // Reset all filters
+                Object.keys(filters).forEach(key => {
+                    filters[key] = null;
+                    document.getElementById(`${key}-value`).textContent = 'All';
+                    const toggleGroup = document.getElementById(`${key}-toggle`);
+                    toggleGroup.querySelectorAll('.toggle-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                });
+                updateMapData();
+            }
+
+            function updateMapData() {
+                const filteredFeatures = data.features.filter(f => {
+                    const props = f.properties;
+                    return (!filters.walkability || isInRange(props.NatWalkInd, 'walkability', filters.walkability)) &&
+                           (!filters.connectivity || isInRange(props.D2A_Ranked, 'connectivity', filters.connectivity)) &&
+                           (!filters.transit || isInRange(props.D3B_Ranked, 'transit', filters.transit)) &&
+                           (!filters.density || isInRange(props.D4A_Ranked, 'density', filters.density)) &&
+                           (!filters.population || isInRange(props.TotPop, 'population', filters.population));
+                });
+
+                walkabilityLayer.clearLayers();
+                walkabilityLayer.addData({
+                    type: "FeatureCollection",
+                    features: filteredFeatures
+                });
+            }
+
+            function isInRange(value, metric, level) {
+                const ranges = dataRanges[metric];
+                switch(level) {
+                    case 'low':
+                        return value >= ranges.min && value < ranges.low;
+                    case 'medium':
+                        return value >= ranges.low && value < ranges.medium;
+                    case 'high':
+                        return value >= ranges.medium;
+                    default:
+                        return true;
+                }
+            }
+
+            // Create choropleth layer
+            function style(feature) {
+                return {
+                    fillColor: getColor(feature.properties.NatWalkInd),
+                    weight: 1,
+                    opacity: 1,
+                    color: 'white',
+                    fillOpacity: 0.7
+                };
+            }
+
+            function getColor(d) {
+                return d > 16 ? '#800026' :
+                       d > 12 ? '#BD0026' :
+                       d > 8  ? '#E31A1C' :
+                       d > 4  ? '#FC4E2A' :
+                                '#FFEDA0';
+            }
+
+            const walkabilityLayer = L.geoJSON(data, {
+                style: style,
+                onEachFeature: function(feature, layer) {
+                    layer.on({
+                        mouseover: highlightFeature,
+                        mouseout: resetHighlight,
+                        click: zoomToFeature
+                    });
+                }
+            }).addTo(map);
+
+            function highlightFeature(e) {
+                const layer = e.target;
+                layer.setStyle({
+                    weight: 3,
+                    color: '#666',
+                    fillOpacity: 0.9
+                });
+                updateSidebar(layer.feature);
+            }
+
+            function resetHighlight(e) {
+                walkabilityLayer.resetStyle(e.target);
+            }
+
+            function zoomToFeature(e) {
+                map.fitBounds(e.target.getBounds());
+            }
+
+            // Layer controls
+            document.getElementById('showBeltline').addEventListener('change', function(e) {
+                if (e.target.checked) {
+                    beltline.addTo(map);
+                } else {
+                    beltline.remove();
+                }
+            });
+
+            document.getElementById('showLandmarks').addEventListener('change', function(e) {
+                if (e.target.checked) {
+                    landmarks.addTo(map);
+                } else {
+                    landmarks.remove();
+                }
+            });
+
+            document.getElementById('showLabels').addEventListener('change', function(e) {
+                if (e.target.checked) {
+                    labels.addTo(map);
+                } else {
+                    labels.remove();
+                }
+            });
+
+            function updateSidebar(feature) {
+                const props = feature.properties;
+                
+                // Update walkability score
+                d3.select("#walkability-score")
+                    .text(props.NatWalkInd.toFixed(1));
+
+                // Update population
+                d3.select("#population-value")
+                    .text(d3.format(",")(props.TotPop));
+
+                // Update factors and their visualizations
+                d3.select("#connectivity-score")
+                    .text(props.D2A_Ranked.toFixed(0) + "%");
+                updateConnectivityViz(props.D2A_Ranked);
+
+                d3.select("#transit-score")
+                    .text(props.D3B_Ranked.toFixed(0) + "%");
+                updateTransitViz(props.D3B_Ranked);
+
+                d3.select("#density-score")
+                    .text(props.D4A_Ranked.toFixed(0) + "%");
+                updateDensityViz(props.D4A_Ranked);
+
+                // Update distribution chart
+                updateDistributionChart(props.NatWalkInd);
+                updateSparkline(props.TotPop);
+            }
+
+            function updateDistributionChart(value) {
+                const width = document.getElementById('walkability-dist').clientWidth;
+                const height = 60;
+                const margin = {top: 5, right: 5, bottom: 15, left: 5};
+
+                // Clear previous chart
+                d3.select("#walkability-dist").html("");
+
+                const svg = d3.select("#walkability-dist")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+
+                const allValues = data.features.map(f => f.properties.NatWalkInd);
+                const x = d3.scaleLinear()
+                    .domain([0, 20])
+                    .range([margin.left, width - margin.right]);
+
+                // Create density data
+                const density = kde(epanechnikov(7), x.ticks(40), allValues);
+
+                // Create area path
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(density, d => d[1])])
+                    .range([height - margin.bottom, margin.top]);
+
+                const area = d3.area()
+                    .x(d => x(d[0]))
+                    .y0(height - margin.bottom)
+                    .y1(d => y(d[1]));
+
+                // Draw distribution
+                svg.append("path")
+                    .datum(density)
+                    .attr("fill", "#e9ecef")
+                    .attr("d", area);
+
+                // Add marker for current value
+                svg.append("line")
+                    .attr("x1", x(value))
+                    .attr("x2", x(value))
+                    .attr("y1", margin.top)
+                    .attr("y2", height - margin.bottom)
+                    .attr("stroke", "#666")
+                    .attr("stroke-width", 2);
+            }
+
+            function updateSparkline(value) {
+                const width = document.getElementById('population-spark').clientWidth;
+                const height = 30;
+                
+                // Clear previous sparkline
+                d3.select("#population-spark").html("");
+
+                const svg = d3.select("#population-spark")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height);
+
+                const allValues = data.features.map(f => f.properties.TotPop);
+                const x = d3.scaleLinear()
+                    .domain([0, d3.max(allValues)])
+                    .range([0, width]);
+
+                // Add marker for current value
+                svg.append("line")
+                    .attr("x1", x(value))
+                    .attr("x2", x(value))
+                    .attr("y1", 0)
+                    .attr("y2", height)
+                    .attr("stroke", "#666")
+                    .attr("stroke-width", 2);
+
+                // Add background distribution
+                svg.append("rect")
+                    .attr("x", 0)
+                    .attr("y", height/2)
+                    .attr("width", width)
+                    .attr("height", 1)
+                    .attr("fill", "#e9ecef");
+            }
+
+            // Kernel density estimation functions
+            function kde(kernel, thresholds, data) {
+                return thresholds.map(t => [t, d3.mean(data, d => kernel(t - d))]);
+            }
+
+            function epanechnikov(bandwidth) {
+                return x => Math.abs(x /= bandwidth) <= 1 ? 0.75 * (1 - x * x) / bandwidth : 0;
+            }
+
+            // Initialize toggles
+            setupToggles();
+        });
+
+        // Add gradient overlay to soften map edge
+        const overlay = L.control({position: 'topleft'});
+        overlay.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'map-overlay');
+            return div;
+        };
+        overlay.addTo(map);
+    </script>
+</body>
+</html>

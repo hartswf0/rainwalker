@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Access Instructions | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .access-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .steps-container {
+            position: relative;
+        }
+
+        .step {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .step:hover {
+            transform: translateX(10px);
+            background: #f0f0f0;
+        }
+
+        .step-number {
+            font-size: 1.2em;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .step-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .requirements-container {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .requirement {
+            margin-bottom: 1.5rem;
+        }
+
+        .requirement-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .requirement-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .file-tree {
+            font-family: monospace;
+            font-size: 0.9em;
+            margin-top: 1rem;
+        }
+
+        .file-item {
+            padding: 0.2rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .file-item::before {
+            content: "├── ";
+            position: absolute;
+            left: 0;
+        }
+
+        .file-item:last-child::before {
+            content: "└── ";
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .progress-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: #000;
+            z-index: 1000;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-indicator" id="progress"></div>
+
+    <h1>Accessing the Walkability Data</h1>
+    <p class="description">
+        The National Walkability Index data for Atlanta is available through multiple channels. 
+        This guide walks through the process of accessing and preparing the data for analysis.
+    </p>
+
+    <div class="access-grid">
+        <div class="requirements-container">
+            <h2>Requirements</h2>
+            <div class="requirement">
+                <h3 class="requirement-title">Software</h3>
+                <p class="requirement-description">
+                    GIS software (QGIS or ArcGIS) for spatial data handling
+                </p>
+            </div>
+            <div class="requirement">
+                <h3 class="requirement-title">Data Format</h3>
+                <p class="requirement-description">
+                    GeoJSON or Shapefile format
+                </p>
+            </div>
+            <div class="requirement">
+                <h3 class="requirement-title">File Structure</h3>
+                <div class="file-tree">
+                    <div class="file-item">atlanta_walkability_wgs84.geojson</div>
+                    <div class="file-item">metadata.json</div>
+                    <div class="file-item">documentation.pdf</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="steps-container">
+            <div class="step">
+                <div class="step-number">Step 1</div>
+                <h3 class="step-title">Visit EPA Smart Location Database</h3>
+                <p class="step-description">
+                    Navigate to the EPA's Smart Location Database website where the National 
+                    Walkability Index data is hosted.
+                </p>
+            </div>
+            <div class="step">
+                <div class="step-number">Step 2</div>
+                <h3 class="step-title">Download Data Package</h3>
+                <p class="step-description">
+                    Download the complete data package for Atlanta metropolitan area, including 
+                    GeoJSON files and documentation.
+                </p>
+            </div>
+            <div class="step">
+                <div class="step-number">Step 3</div>
+                <h3 class="step-title">Verify Data Integrity</h3>
+                <p class="step-description">
+                    Check the downloaded files against provided checksums and ensure all 
+                    required components are present.
+                </p>
+            </div>
+            <div class="step">
+                <div class="step-number">Step 4</div>
+                <h3 class="step-title">Load Data</h3>
+                <p class="step-description">
+                    Load the GeoJSON file into your preferred GIS software or data analysis 
+                    environment.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <a href="../overview/geographic.html" class="nav-link">← Back to Geographic</a>
+        <a href="requirements.html" class="nav-link">Next: Requirements →</a>
+    </div>
+
+    <script>
+        // Progress indicator
+        function updateProgress() {
+            const windowHeight = window.innerHeight;
+            const documentHeight = document.documentElement.scrollHeight - windowHeight;
+            const scrolled = window.scrollY;
+            const progress = (scrolled / documentHeight) * 100;
+            
+            document.getElementById('progress').style.width = progress + '%';
+        }
+
+        window.addEventListener('scroll', updateProgress);
+        updateProgress();
+
+        // Step highlighting
+        const steps = document.querySelectorAll('.step');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.transform = 'translateX(0)';
+                    entry.target.style.opacity = 1;
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+
+        steps.forEach(step => {
+            step.style.opacity = 0;
+            step.style.transform = 'translateX(-20px)';
+            observer.observe(step);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uses & Applications | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .uses-grid {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .use-cases {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .use-case {
+            padding: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .use-case:hover {
+            transform: translateX(5px);
+            background: #f0f0f0;
+        }
+
+        .use-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .use-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .claims-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .claim {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .claim:last-child {
+            border-bottom: none;
+        }
+
+        .claim-title {
+            font-size: 1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .claim-evidence {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .claim-chart {
+            margin-top: 1rem;
+            height: 60px;
+        }
+
+        .sparkline {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .interpretation {
+            font-size: 0.8em;
+            font-style: italic;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Uses & Applications of Walkability Data</h1>
+    <p class="description">
+        The National Walkability Index data serves multiple purposes across different domains. 
+        This guide explores various applications and the claims that can be supported by the data.
+    </p>
+
+    <div class="uses-grid">
+        <div class="use-cases">
+            <div class="use-case">
+                <h3 class="use-title">Urban Planning</h3>
+                <p class="use-description">
+                    Inform development decisions and identify areas for pedestrian infrastructure 
+                    improvements.
+                </p>
+                <p class="interpretation">
+                    Key metric: Network connectivity scores
+                </p>
+            </div>
+            <div class="use-case">
+                <h3 class="use-title">Public Health</h3>
+                <p class="use-description">
+                    Study relationships between walkability and community health outcomes.
+                </p>
+                <p class="interpretation">
+                    Key metric: Overall walkability index
+                </p>
+            </div>
+            <div class="use-case">
+                <h3 class="use-title">Transportation</h3>
+                <p class="use-description">
+                    Plan transit routes and analyze first/last mile connectivity.
+                </p>
+                <p class="interpretation">
+                    Key metric: Transit accessibility scores
+                </p>
+            </div>
+            <div class="use-case">
+                <h3 class="use-title">Real Estate</h3>
+                <p class="use-description">
+                    Evaluate property locations based on pedestrian accessibility.
+                </p>
+                <p class="interpretation">
+                    Key metric: Destination accessibility
+                </p>
+            </div>
+            <div class="use-case">
+                <h3 class="use-title">Policy Making</h3>
+                <p class="use-description">
+                    Develop evidence-based policies for sustainable urban development.
+                </p>
+                <p class="interpretation">
+                    Key metric: Comparative analysis across regions
+                </p>
+            </div>
+            <div class="use-case">
+                <h3 class="use-title">Research</h3>
+                <p class="use-description">
+                    Study urban form and its impacts on community well-being.
+                </p>
+                <p class="interpretation">
+                    Key metric: Multiple indicator analysis
+                </p>
+            </div>
+        </div>
+
+        <div class="claims-container">
+            <h3>Supported Claims</h3>
+            <div class="claim">
+                <h4 class="claim-title">Transit Access Impact</h4>
+                <p class="claim-evidence">
+                    Higher walkability scores strongly correlate with proximity to transit stops.
+                </p>
+                <div class="claim-chart" id="transit-chart"></div>
+            </div>
+            <div class="claim">
+                <h4 class="claim-title">Urban Core Premium</h4>
+                <p class="claim-evidence">
+                    Central areas consistently show higher walkability scores than periphery.
+                </p>
+                <div class="claim-chart" id="urban-chart"></div>
+            </div>
+            <div class="claim">
+                <h4 class="claim-title">Network Density</h4>
+                <p class="claim-evidence">
+                    Street network density positively correlates with walkability.
+                </p>
+                <div class="claim-chart" id="network-chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <a href="../context/setting.html" class="nav-link">← Back to Setting</a>
+        <a href="interpretations.html" class="nav-link">Next: Interpretations →</a>
+    </div>
+
+    <script>
+        // Create sparkline charts for claims
+        function createSparkline(containerId, data) {
+            const width = document.querySelector('.claim-chart').clientWidth;
+            const height = 60;
+            const margin = {top: 5, right: 5, bottom: 5, left: 5};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            const svg = d3.select(`#${containerId}`)
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleLinear()
+                .domain([0, data.length - 1])
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data)])
+                .range([innerHeight, 0]);
+
+            const line = d3.line()
+                .x((d, i) => x(i))
+                .y(d => y(d))
+                .curve(d3.curveBasis);
+
+            g.append("path")
+                .datum(data)
+                .attr("class", "sparkline")
+                .attr("d", line);
+        }
+
+        // Sample data for sparklines
+        const transitData = Array.from({length: 50}, () => Math.random() * 10);
+        const urbanData = Array.from({length: 50}, (_, i) => 10 - Math.abs(25 - i) / 2.5);
+        const networkData = Array.from({length: 50}, (_, i) => Math.min(10, i / 5));
+
+        createSparkline("transit-chart", transitData);
+        createSparkline("urban-chart", urbanData);
+        createSparkline("network-chart", networkData);
+
+        // Add hover effects for use cases
+        const useCases = document.querySelectorAll('.use-case');
+        useCases.forEach(useCase => {
+            useCase.addEventListener('mouseover', () => {
+                useCase.style.transform = 'translateX(10px)';
+            });
+            useCase.addEventListener('mouseout', () => {
+                useCase.style.transform = 'translateX(0)';
+            });
+        });
+    </script>
+</body>
+</html>

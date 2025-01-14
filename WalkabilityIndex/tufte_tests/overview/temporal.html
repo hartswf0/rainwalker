@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Temporal Context | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .temporal-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .temporal-cell {
+            background: #f8f8f8;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .temporal-value {
+            font-size: 1.2em;
+            margin-bottom: 0.5rem;
+        }
+
+        .temporal-label {
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .chart {
+            width: 100%;
+            height: 400px;
+            margin: 2rem 0;
+        }
+
+        .axis line {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        .line {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .area {
+            fill: #f0f0f0;
+        }
+
+        .annotation {
+            font-size: 0.9em;
+            font-style: italic;
+            fill: #666;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Temporal Context of Atlanta's Walkability Data</h1>
+    <p class="description">
+        The walkability data represents a snapshot from 2021, but understanding temporal patterns 
+        requires examining how walkability metrics have evolved over time and what factors 
+        influenced these changes.
+    </p>
+
+    <div class="temporal-grid">
+        <div class="temporal-cell">
+            <div class="temporal-value">2021</div>
+            <div class="temporal-label">Data Collection Year</div>
+        </div>
+        <div class="temporal-cell">
+            <div class="temporal-value">5 years</div>
+            <div class="temporal-label">Update Frequency</div>
+        </div>
+        <div class="temporal-cell">
+            <div class="temporal-value">10 years</div>
+            <div class="temporal-label">Historical Range</div>
+        </div>
+    </div>
+
+    <div class="chart" id="temporal-chart"></div>
+
+    <div class="navigation">
+        <a href="creator.html" class="nav-link">← Back to Creator</a>
+        <a href="geographic.html" class="nav-link">Next: Geographic Context →</a>
+    </div>
+
+    <script>
+        // Sample data for temporal changes
+        const temporalData = [
+            { year: 2012, value: 8.2, event: "Initial Index" },
+            { year: 2014, value: 8.5, event: "Transit Updates" },
+            { year: 2016, value: 8.8, event: "BeltLine Impact" },
+            { year: 2018, value: 9.1, event: "Infrastructure" },
+            { year: 2020, value: 9.3, event: "Development" },
+            { year: 2021, value: 9.4, event: "Current" }
+        ];
+
+        // Create temporal chart
+        const margin = {top: 40, right: 40, bottom: 40, left: 40};
+        const width = document.querySelector('.chart').clientWidth;
+        const height = 400;
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+
+        const svg = d3.select("#temporal-chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Create scales
+        const x = d3.scaleLinear()
+            .domain(d3.extent(temporalData, d => d.year))
+            .range([0, innerWidth]);
+
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(temporalData, d => d.value)])
+            .range([innerHeight, 0]);
+
+        // Add area
+        const area = d3.area()
+            .x(d => x(d.year))
+            .y0(innerHeight)
+            .y1(d => y(d.value))
+            .curve(d3.curveCatmullRom);
+
+        g.append("path")
+            .datum(temporalData)
+            .attr("class", "area")
+            .attr("d", area);
+
+        // Add line
+        const line = d3.line()
+            .x(d => x(d.year))
+            .y(d => y(d.value))
+            .curve(d3.curveCatmullRom);
+
+        g.append("path")
+            .datum(temporalData)
+            .attr("class", "line")
+            .attr("d", line);
+
+        // Add annotations
+        g.selectAll(".annotation")
+            .data(temporalData)
+            .enter()
+            .append("g")
+            .attr("class", "annotation")
+            .attr("transform", d => `translate(${x(d.year)},${y(d.value) - 10})`)
+            .append("text")
+            .attr("text-anchor", "middle")
+            .text(d => d.event);
+
+        // Add axes
+        g.append("g")
+            .attr("class", "axis")
+            .attr("transform", `translate(0,${innerHeight})`)
+            .call(d3.axisBottom(x).tickFormat(d3.format("d")));
+
+        g.append("g")
+            .attr("class", "axis")
+            .call(d3.axisLeft(y));
+    </script>
+</body>
+</html>

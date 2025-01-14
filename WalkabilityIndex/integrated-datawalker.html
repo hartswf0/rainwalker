@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Integrated Data Walker | Atlanta Walkability</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #f8f8f8;
+            padding: 2rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            border-right: 1px solid #ddd;
+        }
+
+        .main-content {
+            margin-left: 300px;
+            padding: 2rem;
+            flex-grow: 1;
+            max-width: 1200px;
+        }
+
+        .section {
+            margin-bottom: 4rem;
+            opacity: 0.3;
+            transition: opacity 0.5s ease;
+        }
+
+        .section.active {
+            opacity: 1;
+        }
+
+        .nav-item {
+            padding: 1rem;
+            margin: 0.5rem 0;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .nav-item:hover {
+            background: #f0f0f0;
+            border-left-color: #666;
+        }
+
+        .nav-item.active {
+            border-left-color: #000;
+            background: #f0f0f0;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            font-weight: normal;
+            margin-bottom: 1rem;
+        }
+
+        .section-description {
+            font-size: 1.1em;
+            color: #666;
+            margin-bottom: 2rem;
+            max-width: 65ch;
+        }
+
+        .visualization-container {
+            background: #f8f8f8;
+            padding: 2rem;
+            margin: 2rem 0;
+            border-radius: 4px;
+        }
+
+        .progress-indicator {
+            position: fixed;
+            top: 0;
+            left: 300px;
+            right: 0;
+            height: 4px;
+            background: #ddd;
+            z-index: 1000;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #000;
+            width: 0;
+            transition: width 0.3s ease;
+        }
+
+        .metadata {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #ddd;
+        }
+
+        .iframe-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            margin: 2rem 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+            z-index: 1000;
+        }
+
+        .control-button {
+            padding: 0.8rem 1.5rem;
+            background: #000;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .control-button:hover {
+            background: #333;
+        }
+
+        .control-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-indicator">
+        <div class="progress-bar"></div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <h2>Data Guide</h2>
+            <div class="nav-item active" data-section="overview">1. Overview</div>
+            <div class="nav-item" data-section="access">2. Access</div>
+            <div class="nav-item" data-section="standards">3. Standards</div>
+            <div class="nav-item" data-section="codebook">4. Codebook</div>
+            <div class="nav-item" data-section="context">5. Context</div>
+            <div class="nav-item" data-section="uses">6. Uses</div>
+            <div class="nav-item" data-section="sources">7. Sources</div>
+        </div>
+
+        <div class="main-content">
+            <section id="overview" class="section active">
+                <h2 class="section-title">Overview</h2>
+                <p class="section-description">
+                    Explore the origins, temporal evolution, and geographic context of the 
+                    National Walkability Index data for Atlanta.
+                </p>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/overview/creator.html"></iframe>
+                </div>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/overview/temporal.html"></iframe>
+                </div>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/overview/geographic.html"></iframe>
+                </div>
+            </section>
+
+            <section id="access" class="section">
+                <h2 class="section-title">Access</h2>
+                <p class="section-description">
+                    Learn how to obtain, prepare, and work with the walkability data.
+                </p>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/access/instructions.html"></iframe>
+                </div>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/access/requirements.html"></iframe>
+                </div>
+            </section>
+
+            <section id="standards" class="section">
+                <h2 class="section-title">Standards</h2>
+                <p class="section-description">
+                    Understand the data format and organizational structure.
+                </p>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/standards/structure.html"></iframe>
+                </div>
+            </section>
+
+            <section id="codebook" class="section">
+                <h2 class="section-title">Codebook</h2>
+                <p class="section-description">
+                    Explore field definitions and value ranges.
+                </p>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/codebook/fields.html"></iframe>
+                </div>
+            </section>
+
+            <section id="context" class="section">
+                <h2 class="section-title">Context</h2>
+                <p class="section-description">
+                    Examine the setting, people, and ethical considerations.
+                </p>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/context/analysis.html"></iframe>
+                </div>
+            </section>
+
+            <section id="uses" class="section">
+                <h2 class="section-title">Uses</h2>
+                <p class="section-description">
+                    Discover applications and interpretations of the data.
+                </p>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/uses/applications.html"></iframe>
+                </div>
+            </section>
+
+            <section id="sources" class="section">
+                <h2 class="section-title">Sources</h2>
+                <p class="section-description">
+                    Review references and author details.
+                </p>
+                <div class="iframe-container">
+                    <iframe src="tufte_tests/sources/references.html"></iframe>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="control-button" id="prev" disabled>← Previous</button>
+        <button class="control-button" id="next">Next →</button>
+    </div>
+
+    <script>
+        // Navigation and section handling
+        const sections = ['overview', 'access', 'standards', 'codebook', 'context', 'uses', 'sources'];
+        let currentSection = 0;
+
+        function updateSection(index) {
+            // Update sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(sections[index]).classList.add('active');
+
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-section="${sections[index]}"]`).classList.add('active');
+
+            // Update buttons
+            document.getElementById('prev').disabled = index === 0;
+            document.getElementById('next').disabled = index === sections.length - 1;
+
+            // Update progress bar
+            const progress = ((index + 1) / sections.length) * 100;
+            document.querySelector('.progress-bar').style.width = `${progress}%`;
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+
+            // Save progress
+            localStorage.setItem('currentSection', index);
+        }
+
+        // Navigation click handlers
+        document.querySelectorAll('.nav-item').forEach((item, index) => {
+            item.addEventListener('click', () => {
+                currentSection = index;
+                updateSection(currentSection);
+            });
+        });
+
+        // Control button handlers
+        document.getElementById('prev').addEventListener('click', () => {
+            if (currentSection > 0) {
+                currentSection--;
+                updateSection(currentSection);
+            }
+        });
+
+        document.getElementById('next').addEventListener('click', () => {
+            if (currentSection < sections.length - 1) {
+                currentSection++;
+                updateSection(currentSection);
+            }
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' && currentSection > 0) {
+                currentSection--;
+                updateSection(currentSection);
+            } else if (e.key === 'ArrowRight' && currentSection < sections.length - 1) {
+                currentSection++;
+                updateSection(currentSection);
+            }
+        });
+
+        // Restore progress on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedSection = localStorage.getItem('currentSection');
+            if (savedSection !== null) {
+                currentSection = parseInt(savedSection);
+                updateSection(currentSection);
+            }
+        });
+
+        // Handle scroll-based section activation
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('.section');
+            let currentActive = null;
+            let smallestDistance = Infinity;
+
+            sections.forEach(section => {
+                const rect = section.getBoundingClientRect();
+                const distance = Math.abs(rect.top);
+                if (distance < smallestDistance) {
+                    smallestDistance = distance;
+                    currentActive = section;
+                }
+            });
+
+            if (currentActive) {
+                sections.forEach(section => section.classList.remove('active'));
+                currentActive.classList.add('active');
+            }
+        });
+    </script>
+</body>
+</html>

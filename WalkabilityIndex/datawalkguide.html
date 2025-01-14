@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>A Walk Through Atlanta's Data</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/scrollama"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        #intro {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+        }
+
+        #intro h1 {
+            font-size: 3em;
+            font-weight: 200;
+            margin: 0;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 1s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #scene-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        .scroll-container {
+            position: relative;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .step {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.1;
+            transition: opacity 0.5s;
+        }
+
+        .step.is-active {
+            opacity: 1;
+        }
+
+        .step-content {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2rem;
+            max-width: 500px;
+            pointer-events: all;
+            border-radius: 4px;
+            transform: translateX(-100%);
+            transition: transform 1s;
+        }
+
+        .is-active .step-content {
+            transform: translateX(0);
+        }
+
+        .data-viz {
+            width: 100%;
+            height: 300px;
+            margin: 1rem 0;
+        }
+
+        .metric {
+            font-size: 2em;
+            font-weight: 200;
+            margin: 1rem 0;
+        }
+
+        .annotation {
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        #progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background: #fff;
+            z-index: 3;
+            transition: width 0.2s;
+        }
+    </style>
+</head>
+<body>
+    <div id="progress"></div>
+    <div id="scene-container"></div>
+    
+    <div id="intro">
+        <h1>Walking Through Atlanta's Data</h1>
+    </div>
+
+    <div class="scroll-container">
+        <div class="step" data-step="start">
+            <div class="step-content">
+                <h2>Let's Take a Walk</h2>
+                <p>Scroll to experience Atlanta through its walkability data. 
+                   We'll move from the least walkable areas to the most connected neighborhoods.</p>
+                <div class="data-viz" id="overview-viz"></div>
+            </div>
+        </div>
+
+        <div class="step" data-step="isolation">
+            <div class="step-content">
+                <h2>The Edges of Isolation</h2>
+                <div class="metric">1.2</div>
+                <p>We begin in Atlanta's least walkable area, with a walkability score of just 1.2 out of 20.</p>
+                <div class="data-viz" id="isolation-viz"></div>
+                <p class="annotation">Notice how far the nearest pedestrian connection is...</p>
+            </div>
+        </div>
+
+        <div class="step" data-step="barriers">
+            <div class="step-content">
+                <h2>Physical Barriers</h2>
+                <div class="data-viz" id="barriers-viz"></div>
+                <p>Major highways and industrial zones create significant barriers to walkability.
+                   These areas show the lowest street connectivity scores in our data.</p>
+            </div>
+        </div>
+
+        <div class="step" data-step="transition">
+            <div class="step-content">
+                <h2>The Transition Zone</h2>
+                <div class="data-viz" id="transition-viz"></div>
+                <p>As we move closer to residential areas, notice how the street grid begins to emerge.
+                   Street connectivity scores rise from 20 to 60 out of 100.</p>
+            </div>
+        </div>
+
+        <div class="step" data-step="connected">
+            <div class="step-content">
+                <h2>Connected Communities</h2>
+                <div class="metric">85.3</div>
+                <p>Here, walkability scores jump to 15+, with high street connectivity and transit access.</p>
+                <div class="data-viz" id="connected-viz"></div>
+            </div>
+        </div>
+
+        <div class="step" data-step="downtown">
+            <div class="step-content">
+                <h2>Downtown Density</h2>
+                <div class="data-viz" id="downtown-viz"></div>
+                <p>Downtown Atlanta shows the highest walkability scores, combining dense street networks,
+                   frequent transit, and mixed land use.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Three.js Scene Setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('scene-container').appendChild(renderer.domElement);
+
+        // Street Environment
+        function createStreet() {
+            const street = new THREE.Group();
+            
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(100, 1000);
+            const groundMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x333333,
+                roughness: 0.8
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            street.add(ground);
+
+            // Buildings
+            for(let i = 0; i < 20; i++) {
+                const height = Math.random() * 50 + 10;
+                const buildingGeometry = new THREE.BoxGeometry(20, height, 20);
+                const buildingMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x666666,
+                    roughness: 0.7
+                });
+                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+                building.position.x = (Math.random() - 0.5) * 100;
+                building.position.z = i * -50 - 25;
+                building.position.y = height/2;
+                street.add(building);
+            }
+
+            return street;
+        }
+
+        const street = createStreet();
+        scene.add(street);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+
+        // Initial camera position
+        camera.position.set(0, 5, 10);
+        camera.lookAt(0, 5, -10);
+
+        // Animation
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Scrollama setup
+        const scroller = scrollama();
+        
+        scroller
+            .setup({
+                step: '.step',
+                offset: 0.5,
+                debug: false
+            })
+            .onStepEnter(response => {
+                response.element.classList.add('is-active');
+                
+                // Update 3D scene based on step
+                const step = response.element.dataset.step;
+                updateScene(step, response.index / 5); // 5 is total number of steps
+
+                // Update progress bar
+                const progress = (response.index + 1) * (100 / 6); // 6 total steps including intro
+                document.getElementById('progress').style.width = `${progress}%`;
+
+                // Create D3 visualization for current step
+                createVisualization(step, response.element.querySelector('.data-viz'));
+            })
+            .onStepExit(response => {
+                response.element.classList.remove('is-active');
+            });
+
+        // Update 3D scene based on scroll position
+        function updateScene(step, progress) {
+            const targetZ = -progress * 500;
+            const targetY = 5 + progress * 20;
+            
+            // Smooth camera movement
+            camera.position.y += (targetY - camera.position.y) * 0.1;
+            camera.position.z = 10 + targetZ;
+            camera.lookAt(0, camera.position.y, camera.position.z - 20);
+
+            // Update lighting based on progress
+            directionalLight.intensity = 0.6 + progress * 0.4;
+            ambientLight.intensity = 0.4 + progress * 0.3;
+        }
+
+        // Create D3 visualizations for each step
+        function createVisualization(step, container) {
+            if (!container) return;
+            
+            // Clear previous visualization
+            d3.select(container).selectAll('*').remove();
+            
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const svg = d3.select(container)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height);
+
+            switch(step) {
+                case 'start':
+                    createOverviewViz(svg, width, height);
+                    break;
+                case 'isolation':
+                    createIsolationViz(svg, width, height);
+                    break;
+                case 'barriers':
+                    createBarriersViz(svg, width, height);
+                    break;
+                case 'transition':
+                    createTransitionViz(svg, width, height);
+                    break;
+                case 'connected':
+                    createConnectedViz(svg, width, height);
+                    break;
+                case 'downtown':
+                    createDowntownViz(svg, width, height);
+                    break;
+            }
+        }
+
+        // Individual visualization creators
+        function createOverviewViz(svg, width, height) {
+            // Load and visualize walkability distribution
+            d3.json("atlanta_walkability_wgs84.geojson").then(data => {
+                const walkabilityScores = data.features.map(f => f.properties.NatWalkInd);
+                
+                const x = d3.scaleLinear()
+                    .domain([0, 20])
+                    .range([40, width - 40]);
+                
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(walkabilityScores, d => d)])
+                    .range([height - 40, 40]);
+
+                // Create density path
+                const density = d3.density()
+                    .kernel(d3.kernelEpanechnikov)
+                    .bandwidth(1.5)
+                    .sample(100);
+
+                const line = d3.line()
+                    .x(d => x(d[0]))
+                    .y(d => y(d[1]))
+                    .curve(d3.curveBasis);
+
+                svg.append("path")
+                    .datum(density(walkabilityScores))
+                    .attr("fill", "none")
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", line);
+
+                // Add axes
+                svg.append("g")
+                    .attr("transform", `translate(0,${height - 40})`)
+                    .call(d3.axisBottom(x))
+                    .style("color", "#fff");
+
+                svg.append("text")
+                    .attr("x", width/2)
+                    .attr("y", height - 10)
+                    .attr("text-anchor", "middle")
+                    .style("fill", "#fff")
+                    .text("Walkability Score");
+            });
+        }
+
+        function createIsolationViz(svg, width, height) {
+            // Visualization for isolated areas
+            const isolatedArea = svg.append("g")
+                .attr("transform", `translate(${width/2}, ${height/2})`);
+
+            // Create concentric circles representing isolation
+            const circles = d3.range(5).reverse();
+            
+            circles.forEach((d, i) => {
+                isolatedArea.append("circle")
+                    .attr("r", (i + 1) * 30)
+                    .attr("fill", "none")
+                    .attr("stroke", "#fff")
+                    .attr("stroke-width", 0.5)
+                    .attr("opacity", 0.2 + (i * 0.2));
+            });
+
+            // Add central point
+            isolatedArea.append("circle")
+                .attr("r", 5)
+                .attr("fill", "#fff");
+
+            // Add labels
+            isolatedArea.append("text")
+                .attr("y", -100)
+                .attr("text-anchor", "middle")
+                .style("fill", "#fff")
+                .text("1 mile to nearest sidewalk");
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            
+            scroller.resize();
+        });
+    </script>
+</body>
+</html>

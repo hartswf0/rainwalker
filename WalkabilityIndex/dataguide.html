@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Data Guide: Atlanta Walkability Index</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --text-color: #333;
+            --background-color: #fff;
+            --link-color: #2c3e50;
+            --border-color: #ddd;
+            --annotation-color: #666;
+        }
+
+        body {
+            font-family: "ET Book", Georgia, serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background: var(--background-color);
+            margin: 0;
+            padding: 0;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        nav {
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 100;
+        }
+
+        .nav-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1, h2, h3 {
+            font-weight: normal;
+            color: var(--text-color);
+            margin-top: 2em;
+            margin-bottom: 0.5em;
+        }
+
+        h1 { font-size: 2.2em; }
+        h2 { font-size: 1.8em; border-bottom: none; }
+        h3 { font-size: 1.4em; }
+
+        .visualization {
+            margin: 3rem 0;
+            padding: 0;
+            background: none;
+        }
+
+        .viz-container {
+            position: relative;
+            margin: 2rem 0;
+        }
+
+        .annotation {
+            font-size: 0.9em;
+            color: var(--annotation-color);
+            font-style: italic;
+            margin-top: 0.5em;
+        }
+
+        .axis line, .axis path {
+            stroke: #999;
+            stroke-width: 0.5;
+        }
+
+        .axis text {
+            font-size: 0.8em;
+            fill: var(--annotation-color);
+        }
+
+        .data-point {
+            fill: #2c3e50;
+            opacity: 0.6;
+        }
+
+        .data-line {
+            fill: none;
+            stroke: #2c3e50;
+            stroke-width: 1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            font-size: 0.9em;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            font-weight: normal;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .small-multiple {
+            display: inline-block;
+            margin: 1rem;
+        }
+
+        .sparkline {
+            height: 20px;
+            width: 100px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .margin-note {
+            float: right;
+            clear: right;
+            margin-right: -25%;
+            width: 20%;
+            margin-top: 0;
+            margin-bottom: 0;
+            font-size: 0.8em;
+            line-height: 1.3;
+            vertical-align: baseline;
+            position: relative;
+            color: var(--annotation-color);
+        }
+
+        .key-metric {
+            font-size: 2em;
+            font-weight: normal;
+            margin: 1rem 0;
+            color: var(--text-color);
+        }
+
+        .metric-context {
+            font-size: 0.9em;
+            color: var(--annotation-color);
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-content">
+            <h1>Atlanta Walkability Index Data Guide</h1>
+            <div class="nav-links">
+                <a href="#overview">Overview</a>
+                <a href="#access">Access</a>
+                <a href="#standards">Standards</a>
+                <a href="#codebook">Codebook</a>
+                <a href="#context">Context</a>
+                <a href="#visualizations">Visualizations</a>
+                <a href="#uses">Uses</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <section id="overview">
+            <h2>Overview</h2>
+            <h3>Creator</h3>
+            <p>The National Walkability Index dataset for Atlanta was produced by the Environmental Protection Agency (EPA) as part of their Smart Location Mapping program. The data has been processed and enhanced with additional local metrics for the Atlanta metropolitan area.</p>
+            
+            <h3>Temporal Context</h3>
+            <p>The dataset represents walkability metrics from the 2021 update of the National Walkability Index, incorporating the latest available census block group data.</p>
+            
+            <h3>Geographic Context</h3>
+            <p>The data covers the Atlanta metropolitan area, focusing on census block groups within the city limits and surrounding areas influenced by Atlanta's urban development patterns.</p>
+            
+            <h3>Purpose</h3>
+            <p>This dataset aims to help urban planners, researchers, and community advocates understand and improve walkability in Atlanta. It provides metrics for analyzing pedestrian accessibility, transit access, and street connectivity at a granular level.</p>
+        </section>
+
+        <section id="access">
+            <h2>Access</h2>
+            <h3>Instructions</h3>
+            <ol>
+                <li>Clone or download the repository from GitHub</li>
+                <li>Locate the GeoJSON file: atlanta_walkability_wgs84.geojson</li>
+                <li>The data is ready to use with common GIS tools and visualization libraries</li>
+            </ol>
+
+            <h3>Requirements</h3>
+            <ul>
+                <li>GIS software (QGIS, ArcGIS) or</li>
+                <li>Data visualization libraries (D3.js, Leaflet)</li>
+                <li>Basic understanding of GeoJSON format</li>
+            </ul>
+
+            <div class="example-code">
+                // Example loading with D3.js
+                d3.json("atlanta_walkability_wgs84.geojson").then(function(data) {
+                    console.log("Data loaded:", data.features.length, "areas");
+                });
+            </div>
+        </section>
+
+        <section id="standards">
+            <h2>Standards</h2>
+            <h3>Structure</h3>
+            <p>The data follows the GeoJSON format specification, with each feature representing a census block group containing:</p>
+            <ul>
+                <li>Geometry: MultiPolygon coordinates in WGS84</li>
+                <li>Properties: Walkability metrics and demographic data</li>
+            </ul>
+
+            <h3>Format</h3>
+            <div class="example-code">
+{
+    "type": "FeatureCollection",
+    "features": [{
+        "type": "Feature",
+        "geometry": {
+            "type": "MultiPolygon",
+            "coordinates": [...]
+        },
+        "properties": {
+            "GEOID": "130890215001",
+            "NatWalkInd": 15.2,
+            "D2A_Ranked": 85,
+            "D3B_Ranked": 92,
+            "D4A_Ranked": 78,
+            "TotPop": 2543
+        }
+    }]
+}</div>
+        </section>
+
+        <section id="codebook">
+            <h2>Codebook</h2>
+            <table class="codebook-table">
+                <tr>
+                    <th>Field</th>
+                    <th>Description</th>
+                    <th>Values</th>
+                    <th>Notes</th>
+                </tr>
+                <tr>
+                    <td>GEOID</td>
+                    <td>Census Block Group Identifier</td>
+                    <td>12-digit string</td>
+                    <td>Unique identifier for each area</td>
+                </tr>
+                <tr>
+                    <td>NatWalkInd</td>
+                    <td>National Walkability Index</td>
+                    <td>1-20</td>
+                    <td>Higher values indicate better walkability</td>
+                </tr>
+                <tr>
+                    <td>D2A_Ranked</td>
+                    <td>Street Intersection Density</td>
+                    <td>0-100</td>
+                    <td>Percentile rank of intersection density</td>
+                </tr>
+                <tr>
+                    <td>D3B_Ranked</td>
+                    <td>Transit Access</td>
+                    <td>0-100</td>
+                    <td>Percentile rank of distance to transit</td>
+                </tr>
+                <tr>
+                    <td>D4A_Ranked</td>
+                    <td>Employment Density</td>
+                    <td>0-100</td>
+                    <td>Percentile rank of jobs per acre</td>
+                </tr>
+                <tr>
+                    <td>TotPop</td>
+                    <td>Total Population</td>
+                    <td>0-n</td>
+                    <td>Population count in block group</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="context">
+            <h2>Context</h2>
+            <h3>Setting</h3>
+            <p>The data collection process combines multiple sources:</p>
+            <ul>
+                <li>EPA's Smart Location Database</li>
+                <li>Census Bureau's TIGER/Line shapefiles</li>
+                <li>Local transportation network data</li>
+            </ul>
+
+            <h3>Issues</h3>
+            <div class="alert">
+                <strong>Known Limitations:</strong>
+                <ul>
+                    <li>Edge effects at city boundaries</li>
+                    <li>Temporal mismatch between different data sources</li>
+                    <li>Varying accuracy of transit accessibility measures</li>
+                </ul>
+            </div>
+
+            <h3>Ethics</h3>
+            <p>Consider these ethical implications when using the data:</p>
+            <ul>
+                <li>Potential reinforcement of existing disparities</li>
+                <li>Privacy concerns with granular demographic data</li>
+                <li>Representation of marginalized communities</li>
+            </ul>
+        </section>
+
+        <section id="visualizations">
+            <h2>Visualizations</h2>
+            <h3>Patterns</h3>
+            <div id="pattern-viz" class="visualization">
+                <!-- D3 visualization will be inserted here -->
+            </div>
+
+            <h3>Anomalies</h3>
+            <div id="anomaly-viz" class="visualization">
+                <!-- D3 visualization will be inserted here -->
+            </div>
+        </section>
+
+        <section id="uses">
+            <h2>Uses</h2>
+            <h3>Settings</h3>
+            <ul>
+                <li>Urban Planning: Identifying areas for walkability improvements</li>
+                <li>Public Health: Analyzing environmental factors affecting physical activity</li>
+                <li>Real Estate: Evaluating neighborhood accessibility</li>
+                <li>Transportation: Planning transit routes and pedestrian infrastructure</li>
+            </ul>
+
+            <h3>Claims</h3>
+            <div class="citation">
+                "Areas with higher walkability scores show stronger correlation with reduced car dependency and increased physical activity levels among residents."
+            </div>
+
+            <h3>Interpretations</h3>
+            <p>The data reveals:</p>
+            <ul>
+                <li>Spatial patterns of accessibility across Atlanta</li>
+                <li>Relationships between transit access and employment density</li>
+                <li>Areas of opportunity for improving pedestrian infrastructure</li>
+            </ul>
+        </section>
+
+        <section id="sources">
+            <h2>Sources</h2>
+            <div class="citation">
+                U.S. Environmental Protection Agency. (2021). National Walkability Index. Smart Location Database.
+            </div>
+            <div class="citation">
+                Atlanta Regional Commission. (2021). Transportation and Land Use Dataset.
+            </div>
+        </section>
+
+        <section id="author">
+            <h2>Author Details</h2>
+            <h3>Background</h3>
+            <p>This guide was compiled by researchers and data scientists working at the intersection of urban planning and data visualization, with expertise in spatial analysis and transportation planning.</p>
+
+            <h3>Interest</h3>
+            <p>Our exploration of this dataset is driven by the desire to make Atlanta's walkability data more accessible and actionable for both technical and non-technical audiences.</p>
+        </section>
+    </div>
+
+    <script>
+        // Enhanced visualization code following Tufte's principles
+        d3.json("atlanta_walkability_wgs84.geojson").then(function(data) {
+            const width = document.getElementById('pattern-viz').clientWidth;
+            const height = 400;
+            const margin = {top: 40, right: 120, bottom: 40, left: 60};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            // Pattern Visualization: Small Multiples of Key Metrics
+            const metrics = ['NatWalkInd', 'D2A_Ranked', 'D3B_Ranked', 'D4A_Ranked'];
+            const metricNames = ['Walkability', 'Street Connectivity', 'Transit Access', 'Employment Density'];
+
+            metrics.forEach((metric, i) => {
+                const values = data.features.map(f => f.properties[metric]);
+                const svg = d3.select("#pattern-viz")
+                    .append("div")
+                    .attr("class", "small-multiple")
+                    .append("svg")
+                    .attr("width", width/2 - 20)
+                    .attr("height", height/2 - 20);
+
+                const g = svg.append("g")
+                    .attr("transform", `translate(${margin.left/2},${margin.top/2})`);
+
+                // Create density plot
+                const kde = kernelDensityEstimator(kernelEpanechnikov(7), 40);
+                const density = kde(values);
+
+                const x = d3.scaleLinear()
+                    .domain(d3.extent(values))
+                    .range([0, innerWidth/2]);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(density, d => d[1])])
+                    .range([innerHeight/2, 0]);
+
+                // Add density path
+                g.append("path")
+                    .datum(density)
+                    .attr("class", "data-line")
+                    .attr("d", d3.line()
+                        .x(d => x(d[0]))
+                        .y(d => y(d[1]))
+                    );
+
+                // Add axes with minimal styling
+                g.append("g")
+                    .attr("class", "axis")
+                    .attr("transform", `translate(0,${innerHeight/2})`)
+                    .call(d3.axisBottom(x).ticks(5));
+
+                g.append("g")
+                    .attr("class", "axis")
+                    .call(d3.axisLeft(y).ticks(3));
+
+                // Add title
+                g.append("text")
+                    .attr("x", innerWidth/4)
+                    .attr("y", -margin.top/4)
+                    .attr("text-anchor", "middle")
+                    .text(metricNames[i]);
+
+                // Add annotation for notable features
+                const medianValue = d3.median(values);
+                g.append("text")
+                    .attr("class", "annotation")
+                    .attr("x", x(medianValue))
+                    .attr("y", innerHeight/2 + 25)
+                    .attr("text-anchor", "middle")
+                    .text(`median: ${medianValue.toFixed(1)}`);
+            });
+
+            // Anomaly Visualization: Scatterplot with Marginal Distributions
+            const anomalySvg = d3.select("#anomaly-viz")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = anomalySvg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const transitScores = data.features.map(f => f.properties.D3B_Ranked);
+            const connectivityScores = data.features.map(f => f.properties.D2A_Ranked);
+
+            const x = d3.scaleLinear()
+                .domain([0, 100])
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain([0, 100])
+                .range([innerHeight, 0]);
+
+            // Add points with minimal styling
+            g.selectAll("circle")
+                .data(data.features)
+                .enter()
+                .append("circle")
+                .attr("class", "data-point")
+                .attr("cx", d => x(d.properties.D3B_Ranked))
+                .attr("cy", d => y(d.properties.D2A_Ranked))
+                .attr("r", 2);
+
+            // Add axes
+            g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x));
+
+            g.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y));
+
+            // Add labels
+            g.append("text")
+                .attr("x", innerWidth/2)
+                .attr("y", innerHeight + 35)
+                .attr("text-anchor", "middle")
+                .text("Transit Access");
+
+            g.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight/2)
+                .attr("y", -45)
+                .attr("text-anchor", "middle")
+                .text("Street Connectivity");
+
+            // Add correlation annotation
+            const correlation = calculateCorrelation(transitScores, connectivityScores);
+            g.append("text")
+                .attr("class", "annotation")
+                .attr("x", innerWidth - 100)
+                .attr("y", 30)
+                .text(`r = ${correlation.toFixed(2)}`);
+        });
+
+        // Helper functions
+        function kernelDensityEstimator(kernel, X) {
+            return function(V) {
+                return X.map(x => [x, d3.mean(V, v => kernel(x - v))]);
+            };
+        }
+
+        function kernelEpanechnikov(k) {
+            return function(v) {
+                return Math.abs(v /= k) <= 1 ? 0.75 * (1 - v * v) / k : 0;
+            };
+        }
+
+        function calculateCorrelation(x, y) {
+            const n = x.length;
+            const mean_x = d3.mean(x);
+            const mean_y = d3.mean(y);
+            const cov = d3.sum(x.map((xi, i) => (xi - mean_x) * (y[i] - mean_y))) / n;
+            const std_x = Math.sqrt(d3.sum(x.map(xi => Math.pow(xi - mean_x, 2))) / n);
+            const std_y = Math.sqrt(d3.sum(y.map(yi => Math.pow(yi - mean_y, 2))) / n);
+            return cov / (std_x * std_y);
+        }
+    </script>
+</body>
+</html>

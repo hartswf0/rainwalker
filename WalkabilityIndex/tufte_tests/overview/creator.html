@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Data Creator & Origins | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Tufte-inspired styles */
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .timeline {
+            position: relative;
+            margin: 4rem 0;
+        }
+
+        .timeline-line {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: #000;
+        }
+
+        .event {
+            position: relative;
+            margin: 2rem 0;
+            width: 50%;
+            padding-right: 2rem;
+        }
+
+        .event:nth-child(even) {
+            margin-left: 50%;
+            padding-right: 0;
+            padding-left: 2rem;
+        }
+
+        .event-content {
+            padding: 1rem;
+            border-left: 3px solid #000;
+            background: #f8f8f8;
+        }
+
+        .event:nth-child(even) .event-content {
+            border-left: none;
+            border-right: 3px solid #000;
+        }
+
+        .event-date {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .event-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .event-description {
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .source-citation {
+            font-size: 0.8em;
+            color: #666;
+            border-top: 1px solid #ddd;
+            margin-top: 2rem;
+            padding-top: 1rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            text-align: right;
+        }
+
+        .next-section {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Origins of the National Walkability Index</h1>
+    <p class="description">
+        The National Walkability Index was developed by the EPA's Office of Sustainable Communities 
+        to provide a nationwide geographic data resource measuring the relative walkability of census 
+        block groups. This timeline traces its development and evolution.
+    </p>
+
+    <div class="timeline">
+        <div class="timeline-line"></div>
+        <div class="event">
+            <div class="event-content">
+                <div class="event-date">2010</div>
+                <h3 class="event-title">Initial Development</h3>
+                <p class="event-description">
+                    EPA's Office of Sustainable Communities begins development of walkability metrics 
+                    to support environmental and public health research.
+                </p>
+            </div>
+        </div>
+        <div class="event">
+            <div class="event-content">
+                <div class="event-date">2012</div>
+                <h3 class="event-title">Methodology Refinement</h3>
+                <p class="event-description">
+                    Development of the National Walkability Index methodology, incorporating 
+                    measures of density, diversity, and design.
+                </p>
+            </div>
+        </div>
+        <div class="event">
+            <div class="event-content">
+                <div class="event-date">2014</div>
+                <h3 class="event-title">Data Integration</h3>
+                <p class="event-description">
+                    Integration with Smart Location Database, combining walkability metrics 
+                    with other environmental and demographic indicators.
+                </p>
+            </div>
+        </div>
+        <div class="event">
+            <div class="event-content">
+                <div class="event-date">2021</div>
+                <h3 class="event-title">Latest Update</h3>
+                <p class="event-description">
+                    Release of updated National Walkability Index with refined metrics and 
+                    expanded coverage of census block groups.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <p class="source-citation">
+        Source: EPA Office of Sustainable Communities, National Walkability Index Documentation, 2021.
+    </p>
+
+    <div class="navigation">
+        <a href="../overview/temporal.html" class="next-section">
+            Next: Temporal Context →
+        </a>
+    </div>
+
+    <script>
+        // Add smooth scroll animation to timeline events
+        document.addEventListener('DOMContentLoaded', function() {
+            const events = document.querySelectorAll('.event');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = 1;
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, {
+                threshold: 0.1
+            });
+
+            events.forEach(event => {
+                event.style.opacity = 0;
+                event.style.transform = 'translateY(20px)';
+                event.style.transition = 'all 0.5s ease-out';
+                observer.observe(event);
+            });
+        });
+    </script>
+</body>
+</html>

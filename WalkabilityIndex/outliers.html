@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Walkability Outliers - Experiencing Disconnection</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #111;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+        }
+        #canvas {
+            width: 100vw;
+            height: 100vh;
+        }
+        .title {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            font-weight: 300;
+            opacity: 0.8;
+        }
+        .description {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            max-width: 600px;
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.6;
+        }
+        .node {
+            fill: #fff;
+            opacity: 0.1;
+        }
+        .node.disconnected {
+            fill: #ff4444;
+            opacity: 0.8;
+        }
+        .link {
+            stroke: #333;
+            stroke-width: 1;
+        }
+        .barrier {
+            fill: none;
+            stroke: #444;
+            stroke-width: 2;
+            stroke-dasharray: 4,4;
+        }
+        .isolation-zone {
+            fill: #222;
+            opacity: 0.5;
+        }
+        .annotation {
+            font-size: 12px;
+            fill: #666;
+        }
+        .stat {
+            position: fixed;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .stat.visible {
+            opacity: 1;
+        }
+        #walkabilityScore {
+            top: 20px;
+        }
+        #transitAccess {
+            top: 80px;
+        }
+        #connectivity {
+            top: 140px;
+        }
+        .experience-prompt {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 32px;
+            font-weight: 200;
+            opacity: 0;
+            text-align: center;
+            transition: opacity 0.5s;
+        }
+        .experience-prompt.visible {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">Experiencing Atlanta's Least Walkable Places</div>
+    <div class="description">
+        This visualization immerses you in the experience of Atlanta's least walkable areas. 
+        Watch as connections fade, barriers emerge, and isolation takes shape. 
+        Move your cursor to explore different areas and feel how disconnection manifests in our urban landscape.
+    </div>
+    <div id="canvas"></div>
+    <div id="walkabilityScore" class="stat">Walkability Score: <span>0</span></div>
+    <div id="transitAccess" class="stat">Transit Access: <span>0</span></div>
+    <div id="connectivity" class="stat">Street Connectivity: <span>0</span></div>
+    <div class="experience-prompt">Isolation grows as connections fade...</div>
+
+    <script>
+        // Initialize visualization
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+
+        // Create SVG
+        const svg = d3.select("#canvas")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // Add a filter for the glow effect
+        const defs = svg.append("defs");
+        const filter = defs.append("filter")
+            .attr("id", "glow");
+
+        filter.append("feGaussianBlur")
+            .attr("stdDeviation", "3")
+            .attr("result", "coloredBlur");
+
+        const feMerge = filter.append("feMerge");
+        feMerge.append("feMergeNode")
+            .attr("in", "coloredBlur");
+        feMerge.append("feMergeNode")
+            .attr("in", "SourceGraphic");
+
+        // Load and process data
+        d3.json("atlanta_walkability_wgs84.geojson").then(function(data) {
+            // Find the outliers (lowest 10% walkability scores)
+            const features = data.features;
+            const walkabilityScores = features.map(f => f.properties.NatWalkInd);
+            const outlierThreshold = d3.quantile(walkabilityScores, 0.1);
+            
+            const outliers = features.filter(f => f.properties.NatWalkInd <= outlierThreshold);
+
+            // Create force simulation
+            const simulation = d3.forceSimulation()
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .force("charge", d3.forceManyBody().strength(-100))
+                .force("collide", d3.forceCollide().radius(30))
+                .force("x", d3.forceX(width / 2).strength(0.1))
+                .force("y", d3.forceY(height / 2).strength(0.1));
+
+            // Create nodes representing areas
+            const nodes = outliers.map(f => ({
+                id: f.properties.GEOID,
+                walkability: f.properties.NatWalkInd,
+                transit: f.properties.D3B_Ranked,
+                connectivity: f.properties.D2A_Ranked,
+                x: Math.random() * width,
+                y: Math.random() * height
+            }));
+
+            // Create barriers
+            const barriers = svg.append("g")
+                .selectAll("path")
+                .data(d3.range(5))
+                .enter()
+                .append("path")
+                .attr("class", "barrier")
+                .attr("d", (d, i) => {
+                    const angle = (i / 5) * Math.PI * 2;
+                    const radius = 200 + Math.random() * 100;
+                    return `M${width/2 + Math.cos(angle) * radius},${height/2 + Math.sin(angle) * radius} 
+                            A${radius},${radius} 0 0,1 ${width/2 + Math.cos(angle + 0.5) * radius},${height/2 + Math.sin(angle + 0.5) * radius}`;
+                });
+
+            // Create isolation zones
+            const isolationZones = svg.append("g")
+                .selectAll("circle")
+                .data(nodes)
+                .enter()
+                .append("circle")
+                .attr("class", "isolation-zone")
+                .attr("r", d => (20 - d.walkability) * 5)
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y);
+
+            // Create nodes
+            const nodeElements = svg.append("g")
+                .selectAll("circle")
+                .data(nodes)
+                .enter()
+                .append("circle")
+                .attr("class", "node")
+                .attr("r", 5)
+                .attr("cx", d => d.x)
+                .attr("cy", d => d.y)
+                .style("filter", "url(#glow)");
+
+            // Update simulation
+            simulation.nodes(nodes)
+                .on("tick", () => {
+                    nodeElements
+                        .attr("cx", d => d.x)
+                        .attr("cy", d => d.y);
+
+                    isolationZones
+                        .attr("cx", d => d.x)
+                        .attr("cy", d => d.y);
+                });
+
+            // Add interactivity
+            let currentNode = null;
+            svg.on("mousemove", function(event) {
+                const [mx, my] = d3.pointer(event);
+                const node = simulation.find(mx, my, 50);
+
+                if (node !== currentNode) {
+                    currentNode = node;
+                    if (node) {
+                        // Update stats
+                        d3.select("#walkabilityScore")
+                            .classed("visible", true)
+                            .select("span")
+                            .text(node.walkability.toFixed(1));
+
+                        d3.select("#transitAccess")
+                            .classed("visible", true)
+                            .select("span")
+                            .text(node.transit.toFixed(0) + "%");
+
+                        d3.select("#connectivity")
+                            .classed("visible", true)
+                            .select("span")
+                            .text(node.connectivity.toFixed(0) + "%");
+
+                        // Update prompt based on characteristics
+                        const prompt = getExperiencePrompt(node);
+                        d3.select(".experience-prompt")
+                            .classed("visible", true)
+                            .text(prompt);
+
+                        // Highlight current node
+                        nodeElements.classed("disconnected", d => d === node);
+                        isolationZones.style("opacity", d => d === node ? 0.5 : 0.2);
+                    } else {
+                        // Reset when not hovering over a node
+                        d3.selectAll(".stat").classed("visible", false);
+                        d3.select(".experience-prompt").classed("visible", false);
+                        nodeElements.classed("disconnected", false);
+                        isolationZones.style("opacity", 0.5);
+                    }
+                }
+            });
+
+            // Generate experience prompts based on area characteristics
+            function getExperiencePrompt(node) {
+                if (node.walkability < 5) {
+                    return "Stranded in a sea of highways...";
+                } else if (node.transit < 20) {
+                    return "The nearest bus stop is miles away...";
+                } else if (node.connectivity < 20) {
+                    return "Dead ends and cul-de-sacs create endless detours...";
+                } else {
+                    return "Isolation grows as connections fade...";
+                }
+            }
+
+            // Add subtle animation to barriers
+            function animateBarriers() {
+                barriers
+                    .transition()
+                    .duration(10000)
+                    .ease(d3.easeLinear)
+                    .attrTween("stroke-dashoffset", function() {
+                        const length = this.getTotalLength();
+                        return function(t) {
+                            return (length * t) % 20;
+                        };
+                    })
+                    .on("end", animateBarriers);
+            }
+
+            animateBarriers();
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            svg.attr("width", width)
+                .attr("height", height);
+        });
+    </script>
+</body>
+</html>

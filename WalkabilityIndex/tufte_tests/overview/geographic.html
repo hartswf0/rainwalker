@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Geographic Context | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3-geo.v3.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .geo-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .map-container {
+            position: relative;
+            height: 600px;
+        }
+
+        .stats-container {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .stat {
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            margin: 0.2em 0;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
+        .legend-label {
+            font-size: 0.8em;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            pointer-events: none;
+            font-size: 0.9em;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .region-highlight {
+            position: absolute;
+            padding: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            max-width: 200px;
+            font-size: 0.9em;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>Geographic Context of Atlanta's Walkability</h1>
+    <p class="description">
+        The National Walkability Index data for Atlanta covers all census block groups within the 
+        metropolitan area. This visualization explores the spatial distribution of walkability scores 
+        and their relationship to urban geography.
+    </p>
+
+    <div class="geo-container">
+        <div class="map-container" id="map">
+            <div class="legend" id="legend"></div>
+        </div>
+        <div class="stats-container" id="stats">
+            <div class="stat">
+                <div class="stat-value">1,969</div>
+                <div class="stat-label">Census Block Groups</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">526.4</div>
+                <div class="stat-label">Square Miles Coverage</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">9.4</div>
+                <div class="stat-label">Average Walkability Score</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value">15.2</div>
+                <div class="stat-label">Maximum Score (Downtown)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <a href="temporal.html" class="nav-link">← Back to Temporal</a>
+        <a href="../access/instructions.html" class="nav-link">Next: Access Instructions →</a>
+    </div>
+
+    <script>
+        // Load and display the map
+        d3.json("../../atlanta_walkability_wgs84.geojson").then(function(data) {
+            const container = d3.select("#map");
+            const width = container.node().clientWidth;
+            const height = 600;
+
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Create projection
+            const projection = d3.geoMercator()
+                .fitSize([width, height], data);
+
+            const path = d3.geoPath().projection(projection);
+
+            // Create color scale
+            const colorScale = d3.scaleSequential()
+                .domain(d3.extent(data.features, d => d.properties.NatWalkInd))
+                .interpolator(d3.interpolateViridis);
+
+            // Add census blocks
+            svg.selectAll("path")
+                .data(data.features)
+                .enter()
+                .append("path")
+                .attr("d", path)
+                .attr("fill", d => colorScale(d.properties.NatWalkInd))
+                .attr("opacity", 0.8)
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .attr("opacity", 1)
+                        .attr("stroke", "#000")
+                        .attr("stroke-width", 1);
+
+                    // Show region highlight
+                    const highlight = d3.select("body")
+                        .append("div")
+                        .attr("class", "region-highlight")
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px")
+                        .html(`
+                            <strong>Block Group</strong><br>
+                            Walkability: ${d.properties.NatWalkInd.toFixed(1)}<br>
+                            Transit Score: ${d.properties.D3B_Ranked.toFixed(1)}
+                        `)
+                        .style("opacity", 1);
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                        .attr("opacity", 0.8)
+                        .attr("stroke", "none");
+
+                    d3.selectAll(".region-highlight").remove();
+                });
+
+            // Add legend
+            const legend = d3.select("#legend");
+            const legendData = d3.range(0, 1.1, 0.2).reverse();
+
+            const legendItems = legend.selectAll(".legend-item")
+                .data(legendData)
+                .enter()
+                .append("div")
+                .attr("class", "legend-item");
+
+            legendItems.append("div")
+                .attr("class", "legend-color")
+                .style("background", d => d3.interpolateViridis(d));
+
+            legendItems.append("div")
+                .attr("class", "legend-label")
+                .text(d => {
+                    const value = d * (d3.max(data.features, f => f.properties.NatWalkInd) - 
+                                    d3.min(data.features, f => f.properties.NatWalkInd)) + 
+                                    d3.min(data.features, f => f.properties.NatWalkInd);
+                    return value.toFixed(1);
+                });
+        });
+    </script>
+</body>
+</html>

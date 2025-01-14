@@ -1,0 +1,2936 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Walking Through Data | Atlanta Walkability</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/intersection-observer"></script>
+    <script src="https://unpkg.com/scrollama"></script>
+    <style>
+        :root {
+            --text: #f0f0f0;
+            --background: #111;
+            --highlight: #ffd700;
+            --muted: #666;
+            --spacing: 2rem;
+            --transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            --bg-color: var(--background);
+            --text-color: var(--text);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .data-path {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100vh;
+            background: var(--muted);
+            margin-left: 2rem;
+            z-index: 100;
+        }
+
+        .data-path::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: var(--highlight);
+            transition: height 0.5s ease;
+        }
+
+        .section {
+            min-height: 100vh;
+            padding: 2rem 4rem 2rem 6rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .node {
+            position: absolute;
+            left: 2rem;
+            width: 1rem;
+            height: 1rem;
+            background: var(--muted);
+            border-radius: 50%;
+            transform: translateX(-0.5rem);
+            transition: var(--transition);
+            z-index: 101;
+        }
+
+        .node.active {
+            background: var(--highlight);
+            transform: translateX(-0.5rem) scale(1.2);
+        }
+
+        .content {
+            max-width: 1200px;
+            margin: 0 auto;
+            opacity: 0.3;
+            transform: translateX(20px);
+            transition: var(--transition);
+        }
+
+        .section.active .content {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: var(--spacing);
+            font-weight: 300;
+            color: var(--text);
+        }
+
+        h2 {
+            font-size: 2em;
+            margin-bottom: calc(var(--spacing) * 0.75);
+            color: var(--highlight);
+            font-weight: 300;
+        }
+
+        p {
+            margin-bottom: var(--spacing);
+            color: var(--text);
+            max-width: 65ch;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        .tufte-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin: var(--spacing) 0;
+            padding: var(--spacing);
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .tufte-container:hover {
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .tufte-content {
+            color: var(--text);
+        }
+
+        .tufte-content img,
+        .tufte-content svg {
+            filter: invert(0.9);
+        }
+
+        .tufte-content .chart text {
+            fill: var(--text);
+        }
+
+        .tufte-content .chart path,
+        .tufte-content .chart line {
+            stroke: var(--text);
+        }
+
+        .progress-label {
+            position: fixed;
+            left: 4rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.9em;
+            color: var(--muted);
+            transition: var(--transition);
+            pointer-events: none;
+            z-index: 102;
+        }
+
+        .progress-label.active {
+            color: var(--highlight);
+        }
+
+        .scroll-prompt {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--muted);
+            font-size: 0.9em;
+            opacity: 0.7;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 102;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .scroll-arrow {
+            animation: bounce 1.5s infinite;
+        }
+
+        /* Tufte-specific dark mode adjustments */
+        .tufte-content {
+            --text-color: var(--text);
+            --bg-color: transparent;
+            --link-color: var(--highlight);
+        }
+
+        .tufte-content a {
+            color: var(--highlight);
+            text-decoration: none;
+            border-bottom: 1px solid var(--highlight);
+            transition: var(--transition);
+        }
+
+        .tufte-content a:hover {
+            color: var(--text);
+            border-color: var(--text);
+        }
+
+        /* Enhanced visibility for charts and visualizations */
+        .tufte-content .axis text {
+            fill: var(--text);
+            font-size: 12px;
+        }
+
+        .tufte-content .axis line,
+        .tufte-content .axis path {
+            stroke: var(--muted);
+        }
+
+        .tufte-content .grid line {
+            stroke: var(--muted);
+            stroke-opacity: 0.1;
+        }
+
+        /* Remove any existing navigation buttons */
+        .nav-buttons,
+        .control-button,
+        .controls {
+            display: none !important;
+        }
+    </style>
+    <!-- Tufte styles will be injected here -->
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .access-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .steps-container {
+            position: relative;
+        }
+
+        .step {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .step:hover {
+            transform: translateX(10px);
+            background: #f0f0f0;
+        }
+
+        .step-number {
+            font-size: 1.2em;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .step-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .requirements-container {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .requirement {
+            margin-bottom: 1.5rem;
+        }
+
+        .requirement-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .requirement-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .file-tree {
+            font-family: monospace;
+            font-size: 0.9em;
+            margin-top: 1rem;
+        }
+
+        .file-item {
+            padding: 0.2rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .file-item::before {
+            content: "├── ";
+            position: absolute;
+            left: 0;
+        }
+
+        .file-item:last-child::before {
+            content: "└── ";
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .progress-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: #000;
+            z-index: 1000;
+            transition: width 0.3s ease;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .standards-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .structure-diagram {
+            background: #f8f8f8;
+            padding: 1rem;
+            height: 500px;
+            position: relative;
+        }
+
+        .format-details {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .format-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .format-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .format-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .code-sample {
+            font-family: monospace;
+            font-size: 0.9em;
+            padding: 1rem;
+            background: var(--bg-color);
+            border-left: 3px solid #000;
+            margin: 1rem 0;
+            white-space: pre-wrap;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            fill: #fff;
+            stroke: #000;
+            stroke-width: 1.5px;
+        }
+
+        .node text {
+            font-size: 0.9em;
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1.5px;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            pointer-events: none;
+            font-size: 0.9em;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+    
+        /* Tufte-inspired styles */
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .timeline {
+            position: relative;
+            margin: 4rem 0;
+        }
+
+        .timeline-line {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: #000;
+        }
+
+        .event {
+            position: relative;
+            margin: 2rem 0;
+            width: 50%;
+            padding-right: 2rem;
+        }
+
+        .event:nth-child(even) {
+            margin-left: 50%;
+            padding-right: 0;
+            padding-left: 2rem;
+        }
+
+        .event-content {
+            padding: 1rem;
+            border-left: 3px solid #000;
+            background: #f8f8f8;
+        }
+
+        .event:nth-child(even) .event-content {
+            border-left: none;
+            border-right: 3px solid #000;
+        }
+
+        .event-date {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .event-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .event-description {
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .source-citation {
+            font-size: 0.8em;
+            color: #666;
+            border-top: 1px solid #ddd;
+            margin-top: 2rem;
+            padding-top: 1rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            text-align: right;
+        }
+
+        .next-section {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .uses-grid {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .use-cases {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .use-case {
+            padding: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .use-case:hover {
+            transform: translateX(5px);
+            background: #f0f0f0;
+        }
+
+        .use-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .use-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .claims-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .claim {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .claim:last-child {
+            border-bottom: none;
+        }
+
+        .claim-title {
+            font-size: 1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .claim-evidence {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .claim-chart {
+            margin-top: 1rem;
+            height: 60px;
+        }
+
+        .sparkline {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .interpretation {
+            font-size: 0.8em;
+            font-style: italic;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .geo-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .map-container {
+            position: relative;
+            height: 600px;
+        }
+
+        .stats-container {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .stat {
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            margin: 0.2em 0;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+        }
+
+        .legend-label {
+            font-size: 0.8em;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            pointer-events: none;
+            font-size: 0.9em;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .region-highlight {
+            position: absolute;
+            padding: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            max-width: 200px;
+            font-size: 0.9em;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .context-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .context-section {
+            padding: 1rem;
+            background: #f8f8f8;
+            margin-bottom: 1rem;
+        }
+
+        .context-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .context-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 0.5rem;
+        }
+
+        .context-content {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .issues-container {
+            position: relative;
+            height: 400px;
+        }
+
+        .issue-node {
+            position: absolute;
+            padding: 1rem;
+            background: var(--bg-color);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .issue-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .issue-title {
+            font-size: 0.9em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .issue-description {
+            font-size: 0.8em;
+            color: #666;
+            margin: 0;
+            max-width: 200px;
+        }
+
+        .ethics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .ethics-card {
+            padding: 1rem;
+            background: var(--bg-color);
+            border-left: 3px solid #000;
+        }
+
+        .ethics-title {
+            font-size: 0.9em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .ethics-description {
+            font-size: 0.8em;
+            color: #666;
+            margin: 0;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .connection-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .connection {
+            stroke: #ccc;
+            stroke-width: 1;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .codebook-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .fields-container {
+            position: relative;
+        }
+
+        .field-card {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .field-card:hover {
+            transform: translateX(10px);
+            background: #f0f0f0;
+        }
+
+        .field-name {
+            font-family: monospace;
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .field-type {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .field-description {
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .distribution-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+            height: fit-content;
+        }
+
+        .distribution-title {
+            font-size: 1.1em;
+            margin: 0 0 1rem 0;
+        }
+
+        .sparkline {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .axis line {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .field-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9em;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            margin-bottom: 0.2em;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .sources-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .references-container {
+            position: relative;
+        }
+
+        .reference {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .reference:hover {
+            transform: translateX(10px);
+            background: #f0f0f0;
+        }
+
+        .reference-citation {
+            font-size: 0.9em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .reference-doi {
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .reference-abstract {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .reference.expanded .reference-abstract {
+            display: block;
+        }
+
+        .author-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .author-profile {
+            margin-bottom: 2rem;
+        }
+
+        .author-name {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .author-title {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .author-bio {
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .connection-graph {
+            height: 200px;
+            margin: 1rem 0;
+        }
+
+        .node circle {
+            fill: #fff;
+            stroke: #000;
+            stroke-width: 1.5px;
+        }
+
+        .node text {
+            font-size: 0.8em;
+        }
+
+        .link {
+            stroke: #ccc;
+            stroke-width: 1px;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .citation-network {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .network-title {
+            font-size: 1.1em;
+            margin: 0 0 1rem 0;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .requirements-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .requirement-card {
+            padding: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .requirement-card:hover {
+            transform: translateX(10px);
+            background: #f0f0f0;
+        }
+
+        .requirement-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .requirement-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 0.5rem;
+        }
+
+        .requirement-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .compatibility-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .compatibility-title {
+            font-size: 1.1em;
+            margin: 0 0 1rem 0;
+        }
+
+        .compatibility-chart {
+            height: 200px;
+            margin: 1rem 0;
+        }
+
+        .version-bar {
+            height: 30px;
+            margin: 5px 0;
+            background: #ddd;
+            position: relative;
+        }
+
+        .version-fill {
+            height: 100%;
+            background: #000;
+            transition: width 0.3s ease;
+        }
+
+        .version-label {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .code-sample {
+            font-family: monospace;
+            font-size: 0.9em;
+            padding: 1rem;
+            background: var(--bg-color);
+            margin: 0.5rem 0;
+            white-space: pre-wrap;
+        }
+    
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .temporal-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .temporal-cell {
+            background: #f8f8f8;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .temporal-value {
+            font-size: 1.2em;
+            margin-bottom: 0.5rem;
+        }
+
+        .temporal-label {
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .chart {
+            width: 100%;
+            height: 400px;
+            margin: 2rem 0;
+        }
+
+        .axis line {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        .line {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .area {
+            fill: #f0f0f0;
+        }
+
+        .annotation {
+            font-size: 0.9em;
+            font-style: italic;
+            fill: #666;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="data-path"></div>
+    <div class="progress-label">Overview</div>
+
+    
+            <section class="section" data-step="overview" data-title="Overview">
+                <div class="node"></div>
+                <div class="content">
+                    <div class="tufte-container">
+                        <div class="tufte-content"><h1>Origins of the National Walkability Index</h1>
+<p class="description">
+        The National Walkability Index was developed by the EPA's Office of Sustainable Communities 
+        to provide a nationwide geographic data resource measuring the relative walkability of census 
+        block groups. This timeline traces its development and evolution.
+    </p>
+<div class="timeline">
+<div class="timeline-line"></div>
+<div class="event">
+<div class="event-content">
+<div class="event-date">2010</div>
+<h3 class="event-title">Initial Development</h3>
+<p class="event-description">
+                    EPA's Office of Sustainable Communities begins development of walkability metrics 
+                    to support environmental and public health research.
+                </p>
+</div>
+</div>
+<div class="event">
+<div class="event-content">
+<div class="event-date">2012</div>
+<h3 class="event-title">Methodology Refinement</h3>
+<p class="event-description">
+                    Development of the National Walkability Index methodology, incorporating 
+                    measures of density, diversity, and design.
+                </p>
+</div>
+</div>
+<div class="event">
+<div class="event-content">
+<div class="event-date">2014</div>
+<h3 class="event-title">Data Integration</h3>
+<p class="event-description">
+                    Integration with Smart Location Database, combining walkability metrics 
+                    with other environmental and demographic indicators.
+                </p>
+</div>
+</div>
+<div class="event">
+<div class="event-content">
+<div class="event-date">2021</div>
+<h3 class="event-title">Latest Update</h3>
+<p class="event-description">
+                    Release of updated National Walkability Index with refined metrics and 
+                    expanded coverage of census block groups.
+                </p>
+</div>
+</div>
+</div>
+<p class="source-citation">
+        Source: EPA Office of Sustainable Communities, National Walkability Index Documentation, 2021.
+    </p>
+<div class="navigation">
+<a class="next-section" href="../overview/temporal.html">
+            Next: Temporal Context →
+        </a>
+</div></div><div class="tufte-content"><h1>Temporal Context of Atlanta's Walkability Data</h1>
+<p class="description">
+        The walkability data represents a snapshot from 2021, but understanding temporal patterns 
+        requires examining how walkability metrics have evolved over time and what factors 
+        influenced these changes.
+    </p>
+<div class="temporal-grid">
+<div class="temporal-cell">
+<div class="temporal-value">2021</div>
+<div class="temporal-label">Data Collection Year</div>
+</div>
+<div class="temporal-cell">
+<div class="temporal-value">5 years</div>
+<div class="temporal-label">Update Frequency</div>
+</div>
+<div class="temporal-cell">
+<div class="temporal-value">10 years</div>
+<div class="temporal-label">Historical Range</div>
+</div>
+</div>
+<div class="chart" id="temporal-chart"></div>
+<div class="navigation">
+<a class="nav-link" href="creator.html">← Back to Creator</a>
+<a class="nav-link" href="geographic.html">Next: Geographic Context →</a>
+</div></div><div class="tufte-content"><h1>Geographic Context of Atlanta's Walkability</h1>
+<p class="description">
+        The National Walkability Index data for Atlanta covers all census block groups within the 
+        metropolitan area. This visualization explores the spatial distribution of walkability scores 
+        and their relationship to urban geography.
+    </p>
+<div class="geo-container">
+<div class="map-container" id="map">
+<div class="legend" id="legend"></div>
+</div>
+<div class="stats-container" id="stats">
+<div class="stat">
+<div class="stat-value">1,969</div>
+<div class="stat-label">Census Block Groups</div>
+</div>
+<div class="stat">
+<div class="stat-value">526.4</div>
+<div class="stat-label">Square Miles Coverage</div>
+</div>
+<div class="stat">
+<div class="stat-value">9.4</div>
+<div class="stat-label">Average Walkability Score</div>
+</div>
+<div class="stat">
+<div class="stat-value">15.2</div>
+<div class="stat-label">Maximum Score (Downtown)</div>
+</div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="temporal.html">← Back to Temporal</a>
+<a class="nav-link" href="../access/instructions.html">Next: Access Instructions →</a>
+</div></div>
+                    </div>
+                </div>
+            </section>
+            
+
+            <section class="section" data-step="access" data-title="Access">
+                <div class="node"></div>
+                <div class="content">
+                    <div class="tufte-container">
+                        <div class="tufte-content"><div class="progress-indicator" id="progress"></div>
+<h1>Accessing the Walkability Data</h1>
+<p class="description">
+        The National Walkability Index data for Atlanta is available through multiple channels. 
+        This guide walks through the process of accessing and preparing the data for analysis.
+    </p>
+<div class="access-grid">
+<div class="requirements-container">
+<h2>Requirements</h2>
+<div class="requirement">
+<h3 class="requirement-title">Software</h3>
+<p class="requirement-description">
+                    GIS software (QGIS or ArcGIS) for spatial data handling
+                </p>
+</div>
+<div class="requirement">
+<h3 class="requirement-title">Data Format</h3>
+<p class="requirement-description">
+                    GeoJSON or Shapefile format
+                </p>
+</div>
+<div class="requirement">
+<h3 class="requirement-title">File Structure</h3>
+<div class="file-tree">
+<div class="file-item">atlanta_walkability_wgs84.geojson</div>
+<div class="file-item">metadata.json</div>
+<div class="file-item">documentation.pdf</div>
+</div>
+</div>
+</div>
+<div class="steps-container">
+<div class="step">
+<div class="step-number">Step 1</div>
+<h3 class="step-title">Visit EPA Smart Location Database</h3>
+<p class="step-description">
+                    Navigate to the EPA's Smart Location Database website where the National 
+                    Walkability Index data is hosted.
+                </p>
+</div>
+<div class="step">
+<div class="step-number">Step 2</div>
+<h3 class="step-title">Download Data Package</h3>
+<p class="step-description">
+                    Download the complete data package for Atlanta metropolitan area, including 
+                    GeoJSON files and documentation.
+                </p>
+</div>
+<div class="step">
+<div class="step-number">Step 3</div>
+<h3 class="step-title">Verify Data Integrity</h3>
+<p class="step-description">
+                    Check the downloaded files against provided checksums and ensure all 
+                    required components are present.
+                </p>
+</div>
+<div class="step">
+<div class="step-number">Step 4</div>
+<h3 class="step-title">Load Data</h3>
+<p class="step-description">
+                    Load the GeoJSON file into your preferred GIS software or data analysis 
+                    environment.
+                </p>
+</div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="../overview/geographic.html">← Back to Geographic</a>
+<a class="nav-link" href="requirements.html">Next: Requirements →</a>
+</div></div><div class="tufte-content"><h1>Data Access Requirements</h1>
+<p class="description">
+        Before accessing and working with the National Walkability Index data, ensure you have 
+        the necessary software, permissions, and system requirements in place.
+    </p>
+<div class="requirements-grid">
+<div>
+<div class="requirement-card">
+<h3 class="requirement-title">
+<svg class="requirement-icon" viewbox="0 0 24 24">
+<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2"></path>
+</svg>
+                    Software Requirements
+                </h3>
+<div class="requirement-description">
+<ul>
+<li>GIS Software (QGIS 3.x or ArcGIS Pro)</li>
+<li>Python 3.7+ (for data processing)</li>
+<li>Modern web browser</li>
+<li>Text editor for metadata</li>
+</ul>
+<div class="code-sample">pip install geopandas pandas numpy matplotlib</div>
+</div>
+</div>
+<div class="requirement-card">
+<h3 class="requirement-title">
+<svg class="requirement-icon" viewbox="0 0 24 24">
+<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="none" stroke="currentColor" stroke-width="2"></path>
+</svg>
+                    System Requirements
+                </h3>
+<div class="requirement-description">
+<ul>
+<li>4GB RAM minimum (8GB recommended)</li>
+<li>2GB free disk space</li>
+<li>64-bit operating system</li>
+<li>Internet connection for data download</li>
+</ul>
+</div>
+</div>
+<div class="requirement-card">
+<h3 class="requirement-title">
+<svg class="requirement-icon" viewbox="0 0 24 24">
+<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"></path>
+</svg>
+                    Access Permissions
+                </h3>
+<div class="requirement-description">
+<ul>
+<li>EPA Smart Location Database account</li>
+<li>Data usage agreement acceptance</li>
+<li>Citation requirements acknowledgment</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="compatibility-container">
+<h3 class="compatibility-title">Software Compatibility</h3>
+<div class="compatibility-chart">
+<div class="version-bar">
+<div class="version-fill" style="width: 100%"></div>
+<span class="version-label">QGIS 3.x</span>
+</div>
+<div class="version-bar">
+<div class="version-fill" style="width: 90%"></div>
+<span class="version-label">ArcGIS Pro</span>
+</div>
+<div class="version-bar">
+<div class="version-fill" style="width: 85%"></div>
+<span class="version-label">Python 3.7+</span>
+</div>
+<div class="version-bar">
+<div class="version-fill" style="width: 95%"></div>
+<span class="version-label">R 4.x</span>
+</div>
+</div>
+<div class="requirement-card">
+<h3 class="requirement-title">Recommended Setup</h3>
+<div class="requirement-description">
+<p>For optimal performance and compatibility:</p>
+<ul>
+<li>QGIS 3.22+ with GRASS plugin</li>
+<li>Python 3.8 with GeoPandas</li>
+<li>16GB RAM for large datasets</li>
+<li>SSD storage for faster processing</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="instructions.html">← Back to Instructions</a>
+<a class="nav-link" href="../standards/structure.html">Next: Data Structure →</a>
+</div></div>
+                    </div>
+                </div>
+            </section>
+            
+
+            <section class="section" data-step="standards" data-title="Standards">
+                <div class="node"></div>
+                <div class="content">
+                    <div class="tufte-container">
+                        <div class="tufte-content"><h1>Data Standards &amp; Structure</h1>
+<p class="description">
+        The National Walkability Index data follows a structured GeoJSON format, organizing spatial 
+        and attribute data in a hierarchical structure. This visualization explains the data format 
+        and organization.
+    </p>
+<div class="standards-grid">
+<div class="structure-diagram" id="structure"></div>
+<div class="format-details">
+<div class="format-section">
+<h3 class="format-title">GeoJSON Structure</h3>
+<p class="format-description">
+                    Data is stored in GeoJSON format, a standard for encoding geographic data structures.
+                    Each feature represents a census block group with associated properties.
+                </p>
+<div class="code-sample">{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [...]
+    },
+    "properties": {
+      "NatWalkInd": 12.5,
+      "D3B_Ranked": 8.7,
+      ...
+    }
+  }]
+}</div>
+</div>
+<div class="format-section">
+<h3 class="format-title">Coordinate System</h3>
+<p class="format-description">
+                    Spatial data uses WGS84 (EPSG:4326) coordinate system for global compatibility.
+                </p>
+</div>
+<div class="format-section">
+<h3 class="format-title">Data Types</h3>
+<p class="format-description">
+                    - Numeric: Float values for scores and metrics<br/>
+                    - Geometric: Polygon coordinates for block groups<br/>
+                    - String: Identifiers and categorical data
+                </p>
+</div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="../access/requirements.html">← Back to Requirements</a>
+<a class="nav-link" href="format.html">Next: Data Format →</a>
+</div></div>
+                    </div>
+                </div>
+            </section>
+            
+
+            <section class="section" data-step="codebook" data-title="Codebook">
+                <div class="node"></div>
+                <div class="content">
+                    <div class="tufte-container">
+                        <div class="tufte-content"><h1>Data Fields &amp; Definitions</h1>
+<p class="description">
+        The National Walkability Index dataset contains various fields that capture different aspects 
+        of walkability and urban form. This guide explains each field's meaning, type, and typical values.
+    </p>
+<div class="codebook-grid">
+<div class="fields-container" id="fields"></div>
+<div class="distribution-container" id="distribution">
+<h3 class="distribution-title">Field Distribution</h3>
+<div id="sparkline"></div>
+<div class="field-stats" id="stats"></div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="../standards/format.html">← Back to Format</a>
+<a class="nav-link" href="values.html">Next: Value Ranges →</a>
+</div></div>
+                    </div>
+                </div>
+            </section>
+            
+
+            <section class="section" data-step="context" data-title="Context">
+                <div class="node"></div>
+                <div class="content">
+                    <div class="tufte-container">
+                        <div class="tufte-content"><h1>Context &amp; Ethical Considerations</h1>
+<p class="description">
+        Understanding the context in which the walkability data was collected and its implications 
+        is crucial for ethical and effective use. This analysis explores the setting, people affected, 
+        and key considerations.
+    </p>
+<div class="context-grid">
+<div>
+<div class="context-section">
+<h3 class="context-title">
+<svg class="context-icon" viewbox="0 0 24 24">
+<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2"></path>
+</svg>
+                    Setting
+                </h3>
+<div class="context-content">
+<p>The data covers Atlanta's metropolitan area, encompassing:</p>
+<ul>
+<li>Urban core neighborhoods</li>
+<li>Suburban communities</li>
+<li>Transit corridors</li>
+<li>Commercial districts</li>
+</ul>
+</div>
+</div>
+<div class="context-section">
+<h3 class="context-title">
+<svg class="context-icon" viewbox="0 0 24 24">
+<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"></path>
+</svg>
+                    People
+                </h3>
+<div class="context-content">
+<p>Key stakeholders include:</p>
+<ul>
+<li>Local residents</li>
+<li>Urban planners</li>
+<li>Policy makers</li>
+<li>Transportation agencies</li>
+<li>Public health researchers</li>
+</ul>
+</div>
+</div>
+</div>
+<div>
+<div class="context-section">
+<h3 class="context-title">Known Issues</h3>
+<div class="issues-container" id="issues">
+<svg class="connection-svg"></svg>
+</div>
+</div>
+<div class="context-section">
+<h3 class="context-title">Ethical Considerations</h3>
+<div class="ethics-grid">
+<div class="ethics-card">
+<h4 class="ethics-title">Privacy</h4>
+<p class="ethics-description">
+                            Data aggregation at block group level protects individual privacy while 
+                            maintaining analytical value.
+                        </p>
+</div>
+<div class="ethics-card">
+<h4 class="ethics-title">Equity</h4>
+<p class="ethics-description">
+                            Consider how walkability scores may reflect and impact different 
+                            socioeconomic groups.
+                        </p>
+</div>
+<div class="ethics-card">
+<h4 class="ethics-title">Accessibility</h4>
+<p class="ethics-description">
+                            Account for varied mobility needs and abilities in interpreting 
+                            walkability measures.
+                        </p>
+</div>
+<div class="ethics-card">
+<h4 class="ethics-title">Representation</h4>
+<p class="ethics-description">
+                            Ensure metrics adequately represent diverse community characteristics 
+                            and needs.
+                        </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="../codebook/values.html">← Back to Values</a>
+<a class="nav-link" href="setting.html">Next: Detailed Setting →</a>
+</div></div>
+                    </div>
+                </div>
+            </section>
+            
+
+            <section class="section" data-step="uses" data-title="Uses">
+                <div class="node"></div>
+                <div class="content">
+                    <div class="tufte-container">
+                        <div class="tufte-content"><h1>Uses &amp; Applications of Walkability Data</h1>
+<p class="description">
+        The National Walkability Index data serves multiple purposes across different domains. 
+        This guide explores various applications and the claims that can be supported by the data.
+    </p>
+<div class="uses-grid">
+<div class="use-cases">
+<div class="use-case">
+<h3 class="use-title">Urban Planning</h3>
+<p class="use-description">
+                    Inform development decisions and identify areas for pedestrian infrastructure 
+                    improvements.
+                </p>
+<p class="interpretation">
+                    Key metric: Network connectivity scores
+                </p>
+</div>
+<div class="use-case">
+<h3 class="use-title">Public Health</h3>
+<p class="use-description">
+                    Study relationships between walkability and community health outcomes.
+                </p>
+<p class="interpretation">
+                    Key metric: Overall walkability index
+                </p>
+</div>
+<div class="use-case">
+<h3 class="use-title">Transportation</h3>
+<p class="use-description">
+                    Plan transit routes and analyze first/last mile connectivity.
+                </p>
+<p class="interpretation">
+                    Key metric: Transit accessibility scores
+                </p>
+</div>
+<div class="use-case">
+<h3 class="use-title">Real Estate</h3>
+<p class="use-description">
+                    Evaluate property locations based on pedestrian accessibility.
+                </p>
+<p class="interpretation">
+                    Key metric: Destination accessibility
+                </p>
+</div>
+<div class="use-case">
+<h3 class="use-title">Policy Making</h3>
+<p class="use-description">
+                    Develop evidence-based policies for sustainable urban development.
+                </p>
+<p class="interpretation">
+                    Key metric: Comparative analysis across regions
+                </p>
+</div>
+<div class="use-case">
+<h3 class="use-title">Research</h3>
+<p class="use-description">
+                    Study urban form and its impacts on community well-being.
+                </p>
+<p class="interpretation">
+                    Key metric: Multiple indicator analysis
+                </p>
+</div>
+</div>
+<div class="claims-container">
+<h3>Supported Claims</h3>
+<div class="claim">
+<h4 class="claim-title">Transit Access Impact</h4>
+<p class="claim-evidence">
+                    Higher walkability scores strongly correlate with proximity to transit stops.
+                </p>
+<div class="claim-chart" id="transit-chart"></div>
+</div>
+<div class="claim">
+<h4 class="claim-title">Urban Core Premium</h4>
+<p class="claim-evidence">
+                    Central areas consistently show higher walkability scores than periphery.
+                </p>
+<div class="claim-chart" id="urban-chart"></div>
+</div>
+<div class="claim">
+<h4 class="claim-title">Network Density</h4>
+<p class="claim-evidence">
+                    Street network density positively correlates with walkability.
+                </p>
+<div class="claim-chart" id="network-chart"></div>
+</div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="../context/setting.html">← Back to Setting</a>
+<a class="nav-link" href="interpretations.html">Next: Interpretations →</a>
+</div></div>
+                    </div>
+                </div>
+            </section>
+            
+
+            <section class="section" data-step="sources" data-title="Sources">
+                <div class="node"></div>
+                <div class="content">
+                    <div class="tufte-container">
+                        <div class="tufte-content"><h1>Sources &amp; References</h1>
+<p class="description">
+        This guide draws from multiple academic and governmental sources to provide a comprehensive 
+        understanding of walkability data. The following references form the foundation of our analysis.
+    </p>
+<div class="sources-grid">
+<div class="references-container">
+<div class="reference">
+<p class="reference-citation">
+                    U.S. Environmental Protection Agency. (2021). "National Walkability Index." 
+                    Smart Location Database Technical Documentation and User Guide.
+                </p>
+<div class="reference-doi">DOI: 10.2307/j.ctv346nsf</div>
+<p class="reference-abstract">
+                    Primary documentation for the National Walkability Index methodology, including 
+                    data collection procedures and metric calculations.
+                </p>
+</div>
+<div class="reference">
+<p class="reference-citation">
+                    Frank, L. D., et al. (2010). "The development of a walkability index: 
+                    Application to the Neighborhood Quality of Life Study." 
+                    British Journal of Sports Medicine, 44(13), 924-933.
+                </p>
+<div class="reference-doi">DOI: 10.1136/bjsm.2009.058701</div>
+<p class="reference-abstract">
+                    Foundational research on walkability metrics and their relationship to 
+                    public health outcomes.
+                </p>
+</div>
+<div class="reference">
+<p class="reference-citation">
+                    Ewing, R., &amp; Cervero, R. (2010). "Travel and the Built Environment: 
+                    A Meta-Analysis." Journal of the American Planning Association, 76(3), 265-294.
+                </p>
+<div class="reference-doi">DOI: 10.1080/01944361003766766</div>
+<p class="reference-abstract">
+                    Meta-analysis of built environment influences on travel behavior, including 
+                    walkability measures.
+                </p>
+</div>
+<div class="citation-network">
+<h3 class="network-title">Citation Network</h3>
+<div class="connection-graph" id="network"></div>
+</div>
+</div>
+<div class="author-container">
+<div class="author-profile">
+<h3 class="author-name">Data Guide Authors</h3>
+<p class="author-title">EPA Office of Sustainable Communities</p>
+<p class="author-bio">
+                    The EPA's Office of Sustainable Communities developed the National Walkability 
+                    Index as part of their Smart Location Database initiative. The team includes 
+                    urban planners, data scientists, and environmental specialists.
+                </p>
+</div>
+<div class="author-profile">
+<h3 class="author-name">Technical Contributors</h3>
+<p class="author-title">Smart Location Database Team</p>
+<p class="author-bio">
+                    A multidisciplinary team of GIS specialists, transportation planners, and 
+                    environmental scientists who maintain and update the database.
+                </p>
+</div>
+<div class="author-profile">
+<h3 class="author-name">Research Partners</h3>
+<p class="author-title">Academic &amp; Industry Collaborators</p>
+<p class="author-bio">
+                    Collaboration with universities and research institutions to validate and 
+                    improve walkability metrics.
+                </p>
+</div>
+</div>
+</div>
+<div class="navigation">
+<a class="nav-link" href="../uses/interpretations.html">← Back to Interpretations</a>
+<a class="nav-link" href="../index.html">Return to Guide Home →</a>
+</div></div>
+                    </div>
+                </div>
+            </section>
+            
+
+    <div class="scroll-prompt">
+        Scroll to explore <span class="scroll-arrow">↓</span>
+    </div>
+
+    <!-- D3 and other scripts -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Add smooth scroll animation to timeline events
+        document.addEventListener('DOMContentLoaded', function() {
+            const events = document.querySelectorAll('.event');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = 1;
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, {
+                threshold: 0.1
+            });
+
+            events.forEach(event => {
+                event.style.opacity = 0;
+                event.style.transform = 'translateY(20px)';
+                event.style.transition = 'all 0.5s ease-out';
+                observer.observe(event);
+            });
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Sample data for temporal changes
+        const temporalData = [
+            { year: 2012, value: 8.2, event: "Initial Index" },
+            { year: 2014, value: 8.5, event: "Transit Updates" },
+            { year: 2016, value: 8.8, event: "BeltLine Impact" },
+            { year: 2018, value: 9.1, event: "Infrastructure" },
+            { year: 2020, value: 9.3, event: "Development" },
+            { year: 2021, value: 9.4, event: "Current" }
+        ];
+
+        // Create temporal chart
+        const margin = {top: 40, right: 40, bottom: 40, left: 40};
+        const width = document.querySelector('.chart').clientWidth;
+        const height = 400;
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+
+        const svg = d3.select("#temporal-chart")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Create scales
+        const x = d3.scaleLinear()
+            .domain(d3.extent(temporalData, d => d.year))
+            .range([0, innerWidth]);
+
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(temporalData, d => d.value)])
+            .range([innerHeight, 0]);
+
+        // Add area
+        const area = d3.area()
+            .x(d => x(d.year))
+            .y0(innerHeight)
+            .y1(d => y(d.value))
+            .curve(d3.curveCatmullRom);
+
+        g.append("path")
+            .datum(temporalData)
+            .attr("class", "area")
+            .attr("d", area);
+
+        // Add line
+        const line = d3.line()
+            .x(d => x(d.year))
+            .y(d => y(d.value))
+            .curve(d3.curveCatmullRom);
+
+        g.append("path")
+            .datum(temporalData)
+            .attr("class", "line")
+            .attr("d", line);
+
+        // Add annotations
+        g.selectAll(".annotation")
+            .data(temporalData)
+            .enter()
+            .append("g")
+            .attr("class", "annotation")
+            .attr("transform", d => `translate(${x(d.year)},${y(d.value) - 10})`)
+            .append("text")
+            .attr("text-anchor", "middle")
+            .text(d => d.event);
+
+        // Add axes
+        g.append("g")
+            .attr("class", "axis")
+            .attr("transform", `translate(0,${innerHeight})`)
+            .call(d3.axisBottom(x).tickFormat(d3.format("d")));
+
+        g.append("g")
+            .attr("class", "axis")
+            .call(d3.axisLeft(y));
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://d3js.org/d3-geo.v3.min.js"></script>
+<script src="https://d3js.org/topojson.v3.min.js"></script>
+<script>
+        // Load and display the map
+        d3.json("../../atlanta_walkability_wgs84.geojson").then(function(data) {
+            const container = d3.select("#map");
+            const width = container.node().clientWidth;
+            const height = 600;
+
+            const svg = container.append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            // Create projection
+            const projection = d3.geoMercator()
+                .fitSize([width, height], data);
+
+            const path = d3.geoPath().projection(projection);
+
+            // Create color scale
+            const colorScale = d3.scaleSequential()
+                .domain(d3.extent(data.features, d => d.properties.NatWalkInd))
+                .interpolator(d3.interpolateViridis);
+
+            // Add census blocks
+            svg.selectAll("path")
+                .data(data.features)
+                .enter()
+                .append("path")
+                .attr("d", path)
+                .attr("fill", d => colorScale(d.properties.NatWalkInd))
+                .attr("opacity", 0.8)
+                .on("mouseover", function(event, d) {
+                    d3.select(this)
+                        .attr("opacity", 1)
+                        .attr("stroke", "#000")
+                        .attr("stroke-width", 1);
+
+                    // Show region highlight
+                    const highlight = d3.select("body")
+                        .append("div")
+                        .attr("class", "region-highlight")
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px")
+                        .html(`
+                            <strong>Block Group</strong><br>
+                            Walkability: ${d.properties.NatWalkInd.toFixed(1)}<br>
+                            Transit Score: ${d.properties.D3B_Ranked.toFixed(1)}
+                        `)
+                        .style("opacity", 1);
+                })
+                .on("mouseout", function() {
+                    d3.select(this)
+                        .attr("opacity", 0.8)
+                        .attr("stroke", "none");
+
+                    d3.selectAll(".region-highlight").remove();
+                });
+
+            // Add legend
+            const legend = d3.select("#legend");
+            const legendData = d3.range(0, 1.1, 0.2).reverse();
+
+            const legendItems = legend.selectAll(".legend-item")
+                .data(legendData)
+                .enter()
+                .append("div")
+                .attr("class", "legend-item");
+
+            legendItems.append("div")
+                .attr("class", "legend-color")
+                .style("background", d => d3.interpolateViridis(d));
+
+            legendItems.append("div")
+                .attr("class", "legend-label")
+                .text(d => {
+                    const value = d * (d3.max(data.features, f => f.properties.NatWalkInd) - 
+                                    d3.min(data.features, f => f.properties.NatWalkInd)) + 
+                                    d3.min(data.features, f => f.properties.NatWalkInd);
+                    return value.toFixed(1);
+                });
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Progress indicator
+        function updateProgress() {
+            const windowHeight = window.innerHeight;
+            const documentHeight = document.documentElement.scrollHeight - windowHeight;
+            const scrolled = window.scrollY;
+            const progress = (scrolled / documentHeight) * 100;
+            
+            document.getElementById('progress').style.width = progress + '%';
+        }
+
+        window.addEventListener('scroll', updateProgress);
+        updateProgress();
+
+        // Step highlighting
+        const steps = document.querySelectorAll('.step');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.transform = 'translateX(0)';
+                    entry.target.style.opacity = 1;
+                }
+            });
+        }, {
+            threshold: 0.1
+        });
+
+        steps.forEach(step => {
+            step.style.opacity = 0;
+            step.style.transform = 'translateX(-20px)';
+            observer.observe(step);
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Add hover effects for requirement cards
+        document.querySelectorAll('.requirement-card').forEach(card => {
+            card.addEventListener('mouseover', () => {
+                card.style.transform = 'translateX(10px)';
+            });
+            card.addEventListener('mouseout', () => {
+                card.style.transform = 'translateX(0)';
+            });
+        });
+
+        // Animate compatibility bars on load
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.version-fill').forEach(fill => {
+                const width = fill.style.width;
+                fill.style.width = '0';
+                setTimeout(() => {
+                    fill.style.width = width;
+                }, 100);
+            });
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Create hierarchical data structure visualization
+        const data = {
+            name: "GeoJSON",
+            children: [
+                {
+                    name: "Features",
+                    children: [
+                        {
+                            name: "Geometry",
+                            children: [
+                                {name: "Type"},
+                                {name: "Coordinates"}
+                            ]
+                        },
+                        {
+                            name: "Properties",
+                            children: [
+                                {name: "NatWalkInd"},
+                                {name: "D3B_Ranked"},
+                                {name: "Demographics"},
+                                {name: "Identifiers"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    name: "Metadata",
+                    children: [
+                        {name: "Source"},
+                        {name: "Date"},
+                        {name: "CRS"}
+                    ]
+                }
+            ]
+        };
+
+        // Set up tree diagram
+        const width = document.querySelector('.structure-diagram').clientWidth;
+        const height = 500;
+        const margin = {top: 20, right: 90, bottom: 20, left: 90};
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+
+        const svg = d3.select("#structure")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Create tree layout
+        const tree = d3.tree()
+            .size([innerHeight, innerWidth]);
+
+        // Convert data to hierarchy
+        const root = d3.hierarchy(data);
+        const treeData = tree(root);
+
+        // Add links
+        const link = g.selectAll(".link")
+            .data(treeData.links())
+            .enter().append("path")
+            .attr("class", "link")
+            .attr("d", d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x));
+
+        // Add nodes
+        const node = g.selectAll(".node")
+            .data(treeData.descendants())
+            .enter().append("g")
+            .attr("class", "node")
+            .attr("transform", d => `translate(${d.y},${d.x})`);
+
+        node.append("circle")
+            .attr("r", 4);
+
+        node.append("text")
+            .attr("dy", ".35em")
+            .attr("x", d => d.children ? -8 : 8)
+            .attr("text-anchor", d => d.children ? "end" : "start")
+            .text(d => d.data.name)
+            .on("mouseover", function(event, d) {
+                d3.select(this)
+                    .style("font-weight", "bold");
+            })
+            .on("mouseout", function(event, d) {
+                d3.select(this)
+                    .style("font-weight", "normal");
+            });
+
+        // Add tooltips for nodes
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        node.on("mouseover", function(event, d) {
+            tooltip.transition()
+                .duration(200)
+                .style("opacity", .9);
+            
+            let tooltipText = "";
+            switch(d.data.name) {
+                case "GeoJSON":
+                    tooltipText = "Root container for geographic data";
+                    break;
+                case "Features":
+                    tooltipText = "Collection of geographic features";
+                    break;
+                case "Properties":
+                    tooltipText = "Attribute data for each feature";
+                    break;
+                case "NatWalkInd":
+                    tooltipText = "National Walkability Index score";
+                    break;
+                default:
+                    tooltipText = d.data.name;
+            }
+            
+            tooltip.html(tooltipText)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style("opacity", 0);
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Load data and create visualizations
+        d3.json("../../atlanta_walkability_wgs84.geojson").then(function(data) {
+            // Define field metadata
+            const fields = [
+                {
+                    name: "NatWalkInd",
+                    type: "Float",
+                    description: "National Walkability Index score (0-20)",
+                    key: "NatWalkInd"
+                },
+                {
+                    name: "D3B_Ranked",
+                    type: "Float",
+                    description: "Transit accessibility score (0-10)",
+                    key: "D3B_Ranked"
+                },
+                {
+                    name: "D3B",
+                    type: "Float",
+                    description: "Distance to transit stops",
+                    key: "D3B"
+                },
+                {
+                    name: "D3BN",
+                    type: "Float",
+                    description: "Network density near transit",
+                    key: "D3BN"
+                }
+            ];
+
+            // Create field cards
+            const fieldsContainer = d3.select("#fields");
+            
+            const fieldCards = fieldsContainer.selectAll(".field-card")
+                .data(fields)
+                .enter()
+                .append("div")
+                .attr("class", "field-card")
+                .on("mouseover", function(event, d) {
+                    updateDistribution(d);
+                });
+
+            fieldCards.append("h3")
+                .attr("class", "field-name")
+                .text(d => d.name);
+
+            fieldCards.append("div")
+                .attr("class", "field-type")
+                .text(d => `Type: ${d.type}`);
+
+            fieldCards.append("p")
+                .attr("class", "field-description")
+                .text(d => d.description);
+
+            // Create distribution visualization
+            const margin = {top: 20, right: 20, bottom: 20, left: 20};
+            const width = document.querySelector('.distribution-container').clientWidth - margin.left - margin.right;
+            const height = 100;
+
+            const svg = d3.select("#sparkline")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            function updateDistribution(field) {
+                // Get values for the field
+                const values = data.features.map(f => f.properties[field.key]);
+                
+                // Create scales
+                const x = d3.scaleLinear()
+                    .domain(d3.extent(values))
+                    .range([0, width]);
+
+                const y = d3.scaleLinear()
+                    .domain([0, d3.max(values)])
+                    .range([height, 0]);
+
+                // Create line generator
+                const line = d3.line()
+                    .x((d, i) => x(d))
+                    .y(d => y(d))
+                    .curve(d3.curveBasis);
+
+                // Update sparkline
+                svg.selectAll("*").remove();
+
+                svg.append("path")
+                    .datum(values)
+                    .attr("class", "sparkline")
+                    .attr("d", line);
+
+                // Add axes
+                svg.append("g")
+                    .attr("class", "axis")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x).ticks(5));
+
+                // Update stats
+                const statsContainer = d3.select("#stats");
+                statsContainer.html("");
+
+                const stats = [
+                    {
+                        label: "Mean",
+                        value: d3.mean(values).toFixed(1)
+                    },
+                    {
+                        label: "Median",
+                        value: d3.median(values).toFixed(1)
+                    },
+                    {
+                        label: "Std Dev",
+                        value: d3.deviation(values).toFixed(1)
+                    }
+                ];
+
+                const statDivs = statsContainer.selectAll(".stat")
+                    .data(stats)
+                    .enter()
+                    .append("div")
+                    .attr("class", "stat");
+
+                statDivs.append("div")
+                    .attr("class", "stat-value")
+                    .text(d => d.value);
+
+                statDivs.append("div")
+                    .attr("class", "stat-label")
+                    .text(d => d.label);
+            }
+
+            // Initialize with first field
+            updateDistribution(fields[0]);
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Create interactive issues visualization
+        const issues = [
+            {
+                id: 1,
+                title: "Data Currency",
+                description: "Some metrics may not reflect recent urban developments",
+                x: 50,
+                y: 50
+            },
+            {
+                id: 2,
+                title: "Measurement Bias",
+                description: "Walkability metrics may not capture all relevant factors",
+                x: 250,
+                y: 100
+            },
+            {
+                id: 3,
+                title: "Geographic Resolution",
+                description: "Block group aggregation may mask local variations",
+                x: 100,
+                y: 200
+            },
+            {
+                id: 4,
+                title: "Temporal Variation",
+                description: "Scores don't reflect time-of-day differences",
+                x: 300,
+                y: 250
+            }
+        ];
+
+        const connections = [
+            {source: 1, target: 2},
+            {source: 2, target: 3},
+            {source: 3, target: 4},
+            {source: 1, target: 4}
+        ];
+
+        // Create SVG connections
+        const svg = d3.select(".connection-svg");
+
+        connections.forEach(conn => {
+            const source = issues.find(i => i.id === conn.source);
+            const target = issues.find(i => i.id === conn.target);
+            
+            svg.append("line")
+                .attr("class", "connection")
+                .attr("x1", source.x + 100)
+                .attr("y1", source.y + 30)
+                .attr("x2", target.x + 100)
+                .attr("y2", target.y + 30);
+        });
+
+        // Create issue nodes
+        const issuesContainer = d3.select("#issues");
+
+        const nodes = issuesContainer.selectAll(".issue-node")
+            .data(issues)
+            .enter()
+            .append("div")
+            .attr("class", "issue-node")
+            .style("left", d => d.x + "px")
+            .style("top", d => d.y + "px");
+
+        nodes.append("h4")
+            .attr("class", "issue-title")
+            .text(d => d.title);
+
+        nodes.append("p")
+            .attr("class", "issue-description")
+            .text(d => d.description);
+
+        // Add hover interactions
+        nodes.on("mouseover", function() {
+            d3.select(this)
+                .style("z-index", 1000)
+                .transition()
+                .duration(300)
+                .style("transform", "scale(1.1)");
+        })
+        .on("mouseout", function() {
+            d3.select(this)
+                .style("z-index", 1)
+                .transition()
+                .duration(300)
+                .style("transform", "scale(1)");
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Create sparkline charts for claims
+        function createSparkline(containerId, data) {
+            const width = document.querySelector('.claim-chart').clientWidth;
+            const height = 60;
+            const margin = {top: 5, right: 5, bottom: 5, left: 5};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            const svg = d3.select(`#${containerId}`)
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleLinear()
+                .domain([0, data.length - 1])
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data)])
+                .range([innerHeight, 0]);
+
+            const line = d3.line()
+                .x((d, i) => x(i))
+                .y(d => y(d))
+                .curve(d3.curveBasis);
+
+            g.append("path")
+                .datum(data)
+                .attr("class", "sparkline")
+                .attr("d", line);
+        }
+
+        // Sample data for sparklines
+        const transitData = Array.from({length: 50}, () => Math.random() * 10);
+        const urbanData = Array.from({length: 50}, (_, i) => 10 - Math.abs(25 - i) / 2.5);
+        const networkData = Array.from({length: 50}, (_, i) => Math.min(10, i / 5));
+
+        createSparkline("transit-chart", transitData);
+        createSparkline("urban-chart", urbanData);
+        createSparkline("network-chart", networkData);
+
+        // Add hover effects for use cases
+        const useCases = document.querySelectorAll('.use-case');
+        useCases.forEach(useCase => {
+            useCase.addEventListener('mouseover', () => {
+                useCase.style.transform = 'translateX(10px)';
+            });
+            useCase.addEventListener('mouseout', () => {
+                useCase.style.transform = 'translateX(0)';
+            });
+        });
+    </script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+        // Create interactive citation network
+        const width = document.querySelector('.connection-graph').clientWidth;
+        const height = 200;
+
+        const svg = d3.select("#network")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // Sample citation network data
+        const nodes = [
+            {id: "EPA", group: 1},
+            {id: "Frank", group: 2},
+            {id: "Ewing", group: 2},
+            {id: "Cervero", group: 2},
+            {id: "Smart Location", group: 1}
+        ];
+
+        const links = [
+            {source: "EPA", target: "Smart Location"},
+            {source: "Frank", target: "EPA"},
+            {source: "Ewing", target: "Frank"},
+            {source: "Cervero", target: "Ewing"},
+            {source: "Smart Location", target: "Frank"}
+        ];
+
+        // Create force simulation
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id))
+            .force("charge", d3.forceManyBody().strength(-50))
+            .force("center", d3.forceCenter(width / 2, height / 2));
+
+        // Add links
+        const link = svg.append("g")
+            .selectAll("line")
+            .data(links)
+            .join("line")
+            .attr("class", "link");
+
+        // Add nodes
+        const node = svg.append("g")
+            .selectAll("g")
+            .data(nodes)
+            .join("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        node.append("circle")
+            .attr("r", 5);
+
+        node.append("text")
+            .attr("x", 8)
+            .attr("y", "0.31em")
+            .text(d => d.id);
+
+        // Update positions
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // Drag functions
+        function dragstarted(event) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
+        }
+
+        function dragged(event) {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+
+        function dragended(event) {
+            if (!event.active) simulation.alphaTarget(0);
+            event.subject.fx = null;
+            event.subject.fy = null;
+        }
+
+        // Add reference expansion
+        document.querySelectorAll('.reference').forEach(ref => {
+            ref.addEventListener('click', () => {
+                ref.classList.toggle('expanded');
+            });
+        });
+    </script>
+    
+    <script>
+        // Initialize scrollama
+        const scroller = scrollama();
+        
+        // Setup scroll interactions
+        scroller
+            .setup({
+                step: '.section',
+                offset: 0.5,
+                debug: false
+            })
+            .onStepEnter(response => {
+                // Update active section
+                document.querySelectorAll('.section').forEach(section => {
+                    section.classList.remove('active');
+                });
+                response.element.classList.add('active');
+
+                // Update nodes
+                const nodes = document.querySelectorAll('.node');
+                nodes.forEach((node, index) => {
+                    if (index <= response.index) {
+                        node.classList.add('active');
+                    } else {
+                        node.classList.remove('active');
+                    }
+                });
+
+                // Update progress path
+                const progress = ((response.index + 1) / document.querySelectorAll('.section').length) * 100;
+                document.querySelector('.data-path::after').style.height = `${progress}%`;
+
+                // Update label
+                const label = document.querySelector('.progress-label');
+                label.textContent = response.element.dataset.title;
+                label.classList.add('active');
+            })
+            .onStepExit(response => {
+                if (response.direction === 'up') {
+                    response.element.classList.remove('active');
+                    document.querySelector('.progress-label').classList.remove('active');
+                }
+            });
+
+        // Handle resize
+        window.addEventListener('resize', scroller.resize);
+
+        // Hide scroll prompt when scrolling starts
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            const prompt = document.querySelector('.scroll-prompt');
+            prompt.style.opacity = '0';
+            
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                prompt.style.opacity = '0.7';
+            }, 1000);
+        });
+
+        // Ensure all D3 charts use the correct colors
+        function updateChartColors() {
+            d3.selectAll('.chart text').style('fill', 'var(--text)');
+            d3.selectAll('.chart path').style('stroke', 'var(--text)');
+            d3.selectAll('.chart line').style('stroke', 'var(--text)');
+        }
+
+        // Run after all content is loaded
+        window.addEventListener('load', updateChartColors);
+    </script>
+</body>
+</html>

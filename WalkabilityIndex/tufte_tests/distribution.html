@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Walkability Distribution | Tufte Test</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1000px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .chart {
+            width: 100%;
+            height: 400px;
+            margin: 2rem 0;
+        }
+
+        .axis line {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        .axis text {
+            font-size: 11px;
+            fill: #666;
+        }
+
+        .density-path {
+            fill: none;
+            stroke: #000;
+            stroke-width: 1;
+        }
+
+        .annotation {
+            font-size: 13px;
+            font-style: italic;
+            fill: #666;
+        }
+
+        .quartile-line {
+            stroke: #666;
+            stroke-width: 0.5;
+            stroke-dasharray: 2,2;
+        }
+
+        .quartile-label {
+            font-size: 11px;
+            fill: #666;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 60ch;
+        }
+    </style>
+</head>
+<body>
+    <h1>Distribution of Walkability Scores in Atlanta</h1>
+    <p class="description">
+        A density plot showing the distribution of National Walkability Index scores across Atlanta's census blocks. 
+        The shape reveals the bimodal nature of Atlanta's walkability landscape, with distinct peaks representing 
+        urban and suburban patterns.
+    </p>
+    <div class="chart" id="distribution"></div>
+
+    <script>
+        d3.json("../atlanta_walkability_wgs84.geojson").then(function(data) {
+            const width = document.querySelector('.chart').clientWidth;
+            const height = 400;
+            const margin = {top: 40, right: 40, bottom: 40, left: 60};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            const svg = d3.select("#distribution")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Extract walkability scores
+            const scores = data.features.map(f => f.properties.NatWalkInd);
+            
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain(d3.extent(scores))
+                .range([0, innerWidth]);
+
+            // Calculate density
+            const kde = kernelDensityEstimator(kernelEpanechnikov(1.5), x.ticks(50));
+            const density = kde(scores);
+            
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(density, d => d[1])])
+                .range([innerHeight, 0]);
+
+            // Add density path
+            g.append("path")
+                .datum(density)
+                .attr("class", "density-path")
+                .attr("d", d3.line()
+                    .x(d => x(d[0]))
+                    .y(d => y(d[1]))
+                );
+
+            // Add quartile lines
+            const quartiles = [
+                d3.quantile(scores, 0.25),
+                d3.quantile(scores, 0.5),
+                d3.quantile(scores, 0.75)
+            ];
+
+            quartiles.forEach((q, i) => {
+                g.append("line")
+                    .attr("class", "quartile-line")
+                    .attr("x1", x(q))
+                    .attr("x2", x(q))
+                    .attr("y1", y(0))
+                    .attr("y2", innerHeight);
+
+                g.append("text")
+                    .attr("class", "quartile-label")
+                    .attr("x", x(q))
+                    .attr("y", innerHeight + 20)
+                    .attr("text-anchor", "middle")
+                    .text(["Q1", "Median", "Q3"][i]);
+            });
+
+            // Add axes
+            g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x).ticks(10));
+
+            // Add annotations for key features
+            const peaks = findPeaks(density);
+            peaks.forEach(peak => {
+                g.append("text")
+                    .attr("class", "annotation")
+                    .attr("x", x(peak[0]))
+                    .attr("y", y(peak[1]) - 10)
+                    .attr("text-anchor", "middle")
+                    .text(peak[0].toFixed(1));
+            });
+
+            // Helper functions
+            function kernelDensityEstimator(kernel, X) {
+                return function(V) {
+                    return X.map(x => [x, d3.mean(V, v => kernel(x - v))]);
+                };
+            }
+
+            function kernelEpanechnikov(k) {
+                return function(v) {
+                    return Math.abs(v /= k) <= 1 ? 0.75 * (1 - v * v) / k : 0;
+                };
+            }
+
+            function findPeaks(density) {
+                const peaks = [];
+                for(let i = 1; i < density.length - 1; i++) {
+                    if(density[i][1] > density[i-1][1] && 
+                       density[i][1] > density[i+1][1] && 
+                       density[i][1] > d3.max(density, d => d[1]) * 0.5) {
+                        peaks.push(density[i]);
+                    }
+                }
+                return peaks;
+            }
+        });
+    </script>
+</body>
+</html>

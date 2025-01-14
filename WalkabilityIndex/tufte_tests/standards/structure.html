@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Data Standards & Structure | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .standards-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .structure-diagram {
+            background: #f8f8f8;
+            padding: 1rem;
+            height: 500px;
+            position: relative;
+        }
+
+        .format-details {
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .format-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .format-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .format-description {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .code-sample {
+            font-family: monospace;
+            font-size: 0.9em;
+            padding: 1rem;
+            background: #fff;
+            border-left: 3px solid #000;
+            margin: 1rem 0;
+            white-space: pre-wrap;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            fill: #fff;
+            stroke: #000;
+            stroke-width: 1.5px;
+        }
+
+        .node text {
+            font-size: 0.9em;
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1.5px;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 8px;
+            background: white;
+            border: 1px solid #ddd;
+            pointer-events: none;
+            font-size: 0.9em;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Data Standards & Structure</h1>
+    <p class="description">
+        The National Walkability Index data follows a structured GeoJSON format, organizing spatial 
+        and attribute data in a hierarchical structure. This visualization explains the data format 
+        and organization.
+    </p>
+
+    <div class="standards-grid">
+        <div class="structure-diagram" id="structure"></div>
+        <div class="format-details">
+            <div class="format-section">
+                <h3 class="format-title">GeoJSON Structure</h3>
+                <p class="format-description">
+                    Data is stored in GeoJSON format, a standard for encoding geographic data structures.
+                    Each feature represents a census block group with associated properties.
+                </p>
+                <div class="code-sample">{
+  "type": "FeatureCollection",
+  "features": [{
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [...]
+    },
+    "properties": {
+      "NatWalkInd": 12.5,
+      "D3B_Ranked": 8.7,
+      ...
+    }
+  }]
+}</div>
+            </div>
+            <div class="format-section">
+                <h3 class="format-title">Coordinate System</h3>
+                <p class="format-description">
+                    Spatial data uses WGS84 (EPSG:4326) coordinate system for global compatibility.
+                </p>
+            </div>
+            <div class="format-section">
+                <h3 class="format-title">Data Types</h3>
+                <p class="format-description">
+                    - Numeric: Float values for scores and metrics<br>
+                    - Geometric: Polygon coordinates for block groups<br>
+                    - String: Identifiers and categorical data
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <a href="../access/requirements.html" class="nav-link">← Back to Requirements</a>
+        <a href="format.html" class="nav-link">Next: Data Format →</a>
+    </div>
+
+    <script>
+        // Create hierarchical data structure visualization
+        const data = {
+            name: "GeoJSON",
+            children: [
+                {
+                    name: "Features",
+                    children: [
+                        {
+                            name: "Geometry",
+                            children: [
+                                {name: "Type"},
+                                {name: "Coordinates"}
+                            ]
+                        },
+                        {
+                            name: "Properties",
+                            children: [
+                                {name: "NatWalkInd"},
+                                {name: "D3B_Ranked"},
+                                {name: "Demographics"},
+                                {name: "Identifiers"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    name: "Metadata",
+                    children: [
+                        {name: "Source"},
+                        {name: "Date"},
+                        {name: "CRS"}
+                    ]
+                }
+            ]
+        };
+
+        // Set up tree diagram
+        const width = document.querySelector('.structure-diagram').clientWidth;
+        const height = 500;
+        const margin = {top: 20, right: 90, bottom: 20, left: 90};
+        const innerWidth = width - margin.left - margin.right;
+        const innerHeight = height - margin.top - margin.bottom;
+
+        const svg = d3.select("#structure")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const g = svg.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Create tree layout
+        const tree = d3.tree()
+            .size([innerHeight, innerWidth]);
+
+        // Convert data to hierarchy
+        const root = d3.hierarchy(data);
+        const treeData = tree(root);
+
+        // Add links
+        const link = g.selectAll(".link")
+            .data(treeData.links())
+            .enter().append("path")
+            .attr("class", "link")
+            .attr("d", d3.linkHorizontal()
+                .x(d => d.y)
+                .y(d => d.x));
+
+        // Add nodes
+        const node = g.selectAll(".node")
+            .data(treeData.descendants())
+            .enter().append("g")
+            .attr("class", "node")
+            .attr("transform", d => `translate(${d.y},${d.x})`);
+
+        node.append("circle")
+            .attr("r", 4);
+
+        node.append("text")
+            .attr("dy", ".35em")
+            .attr("x", d => d.children ? -8 : 8)
+            .attr("text-anchor", d => d.children ? "end" : "start")
+            .text(d => d.data.name)
+            .on("mouseover", function(event, d) {
+                d3.select(this)
+                    .style("font-weight", "bold");
+            })
+            .on("mouseout", function(event, d) {
+                d3.select(this)
+                    .style("font-weight", "normal");
+            });
+
+        // Add tooltips for nodes
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+
+        node.on("mouseover", function(event, d) {
+            tooltip.transition()
+                .duration(200)
+                .style("opacity", .9);
+            
+            let tooltipText = "";
+            switch(d.data.name) {
+                case "GeoJSON":
+                    tooltipText = "Root container for geographic data";
+                    break;
+                case "Features":
+                    tooltipText = "Collection of geographic features";
+                    break;
+                case "Properties":
+                    tooltipText = "Attribute data for each feature";
+                    break;
+                case "NatWalkInd":
+                    tooltipText = "National Walkability Index score";
+                    break;
+                default:
+                    tooltipText = d.data.name;
+            }
+            
+            tooltip.html(tooltipText)
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", function(d) {
+            tooltip.transition()
+                .duration(500)
+                .style("opacity", 0);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Context Analysis | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .context-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .context-section {
+            padding: 1rem;
+            background: #f8f8f8;
+            margin-bottom: 1rem;
+        }
+
+        .context-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .context-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 0.5rem;
+        }
+
+        .context-content {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .issues-container {
+            position: relative;
+            height: 400px;
+        }
+
+        .issue-node {
+            position: absolute;
+            padding: 1rem;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .issue-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .issue-title {
+            font-size: 0.9em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .issue-description {
+            font-size: 0.8em;
+            color: #666;
+            margin: 0;
+            max-width: 200px;
+        }
+
+        .ethics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .ethics-card {
+            padding: 1rem;
+            background: #fff;
+            border-left: 3px solid #000;
+        }
+
+        .ethics-title {
+            font-size: 0.9em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .ethics-description {
+            font-size: 0.8em;
+            color: #666;
+            margin: 0;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .connection-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .connection {
+            stroke: #ccc;
+            stroke-width: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>Context & Ethical Considerations</h1>
+    <p class="description">
+        Understanding the context in which the walkability data was collected and its implications 
+        is crucial for ethical and effective use. This analysis explores the setting, people affected, 
+        and key considerations.
+    </p>
+
+    <div class="context-grid">
+        <div>
+            <div class="context-section">
+                <h3 class="context-title">
+                    <svg class="context-icon" viewBox="0 0 24 24">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" 
+                              fill="none" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Setting
+                </h3>
+                <div class="context-content">
+                    <p>The data covers Atlanta's metropolitan area, encompassing:</p>
+                    <ul>
+                        <li>Urban core neighborhoods</li>
+                        <li>Suburban communities</li>
+                        <li>Transit corridors</li>
+                        <li>Commercial districts</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="context-section">
+                <h3 class="context-title">
+                    <svg class="context-icon" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" 
+                              fill="currentColor"/>
+                    </svg>
+                    People
+                </h3>
+                <div class="context-content">
+                    <p>Key stakeholders include:</p>
+                    <ul>
+                        <li>Local residents</li>
+                        <li>Urban planners</li>
+                        <li>Policy makers</li>
+                        <li>Transportation agencies</li>
+                        <li>Public health researchers</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="context-section">
+                <h3 class="context-title">Known Issues</h3>
+                <div class="issues-container" id="issues">
+                    <svg class="connection-svg"></svg>
+                </div>
+            </div>
+
+            <div class="context-section">
+                <h3 class="context-title">Ethical Considerations</h3>
+                <div class="ethics-grid">
+                    <div class="ethics-card">
+                        <h4 class="ethics-title">Privacy</h4>
+                        <p class="ethics-description">
+                            Data aggregation at block group level protects individual privacy while 
+                            maintaining analytical value.
+                        </p>
+                    </div>
+                    <div class="ethics-card">
+                        <h4 class="ethics-title">Equity</h4>
+                        <p class="ethics-description">
+                            Consider how walkability scores may reflect and impact different 
+                            socioeconomic groups.
+                        </p>
+                    </div>
+                    <div class="ethics-card">
+                        <h4 class="ethics-title">Accessibility</h4>
+                        <p class="ethics-description">
+                            Account for varied mobility needs and abilities in interpreting 
+                            walkability measures.
+                        </p>
+                    </div>
+                    <div class="ethics-card">
+                        <h4 class="ethics-title">Representation</h4>
+                        <p class="ethics-description">
+                            Ensure metrics adequately represent diverse community characteristics 
+                            and needs.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <a href="../codebook/values.html" class="nav-link">← Back to Values</a>
+        <a href="setting.html" class="nav-link">Next: Detailed Setting →</a>
+    </div>
+
+    <script>
+        // Create interactive issues visualization
+        const issues = [
+            {
+                id: 1,
+                title: "Data Currency",
+                description: "Some metrics may not reflect recent urban developments",
+                x: 50,
+                y: 50
+            },
+            {
+                id: 2,
+                title: "Measurement Bias",
+                description: "Walkability metrics may not capture all relevant factors",
+                x: 250,
+                y: 100
+            },
+            {
+                id: 3,
+                title: "Geographic Resolution",
+                description: "Block group aggregation may mask local variations",
+                x: 100,
+                y: 200
+            },
+            {
+                id: 4,
+                title: "Temporal Variation",
+                description: "Scores don't reflect time-of-day differences",
+                x: 300,
+                y: 250
+            }
+        ];
+
+        const connections = [
+            {source: 1, target: 2},
+            {source: 2, target: 3},
+            {source: 3, target: 4},
+            {source: 1, target: 4}
+        ];
+
+        // Create SVG connections
+        const svg = d3.select(".connection-svg");
+
+        connections.forEach(conn => {
+            const source = issues.find(i => i.id === conn.source);
+            const target = issues.find(i => i.id === conn.target);
+            
+            svg.append("line")
+                .attr("class", "connection")
+                .attr("x1", source.x + 100)
+                .attr("y1", source.y + 30)
+                .attr("x2", target.x + 100)
+                .attr("y2", target.y + 30);
+        });
+
+        // Create issue nodes
+        const issuesContainer = d3.select("#issues");
+
+        const nodes = issuesContainer.selectAll(".issue-node")
+            .data(issues)
+            .enter()
+            .append("div")
+            .attr("class", "issue-node")
+            .style("left", d => d.x + "px")
+            .style("top", d => d.y + "px");
+
+        nodes.append("h4")
+            .attr("class", "issue-title")
+            .text(d => d.title);
+
+        nodes.append("p")
+            .attr("class", "issue-description")
+            .text(d => d.description);
+
+        // Add hover interactions
+        nodes.on("mouseover", function() {
+            d3.select(this)
+                .style("z-index", 1000)
+                .transition()
+                .duration(300)
+                .style("transform", "scale(1.1)");
+        })
+        .on("mouseout", function() {
+            d3.select(this)
+                .style("z-index", 1)
+                .transition()
+                .duration(300)
+                .style("transform", "scale(1)");
+        });
+    </script>
+</body>
+</html>

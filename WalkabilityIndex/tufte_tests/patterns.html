@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Walkability Patterns | Tufte Test</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .chart {
+            width: 100%;
+            height: 600px;
+            margin: 2rem 0;
+        }
+
+        .axis line {
+            stroke: #ccc;
+            stroke-width: 0.5;
+        }
+
+        .axis path {
+            display: none;
+        }
+
+        .axis text {
+            font-size: 11px;
+            fill: #666;
+        }
+
+        .point {
+            fill: #000;
+            fill-opacity: 0.1;
+        }
+
+        .trend {
+            stroke: #000;
+            stroke-width: 1;
+            stroke-dasharray: 2,2;
+        }
+
+        .annotation {
+            font-size: 13px;
+            font-style: italic;
+            fill: #666;
+        }
+
+        .cluster {
+            stroke: #000;
+            stroke-width: 1;
+            fill: none;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 60ch;
+        }
+
+        .legend {
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Transit Access vs. Walkability in Atlanta</h1>
+    <p class="description">
+        A scatter plot revealing the relationship between transit access and walkability scores. 
+        The pattern shows distinct clusters and a general positive correlation, highlighting areas 
+        where walkability and transit access align or diverge.
+    </p>
+    <div class="chart" id="patterns"></div>
+
+    <script>
+        d3.json("../atlanta_walkability_wgs84.geojson").then(function(data) {
+            const width = document.querySelector('.chart').clientWidth;
+            const height = 600;
+            const margin = {top: 40, right: 40, bottom: 60, left: 60};
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+
+            const svg = d3.select("#patterns")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = svg.append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            // Extract data points
+            const points = data.features.map(f => ({
+                transit: f.properties.D3B_Ranked,
+                walkability: f.properties.NatWalkInd
+            }));
+
+            // Create scales
+            const x = d3.scaleLinear()
+                .domain([0, d3.max(points, d => d.transit)])
+                .range([0, innerWidth]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(points, d => d.walkability)])
+                .range([innerHeight, 0]);
+
+            // Add points
+            g.selectAll(".point")
+                .data(points)
+                .enter()
+                .append("circle")
+                .attr("class", "point")
+                .attr("cx", d => x(d.transit))
+                .attr("cy", d => y(d.walkability))
+                .attr("r", 3);
+
+            // Add trend line
+            const line = d3.line()
+                .x(d => x(d.transit))
+                .y(d => y(d.walkability));
+
+            const regression = linearRegression(points);
+            const trendData = [
+                {transit: d3.min(points, d => d.transit), 
+                 walkability: regression.intercept + regression.slope * d3.min(points, d => d.transit)},
+                {transit: d3.max(points, d => d.transit), 
+                 walkability: regression.intercept + regression.slope * d3.max(points, d => d.transit)}
+            ];
+
+            g.append("path")
+                .datum(trendData)
+                .attr("class", "trend")
+                .attr("d", line);
+
+            // Add axes
+            g.append("g")
+                .attr("class", "axis")
+                .attr("transform", `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(x).ticks(10));
+
+            g.append("g")
+                .attr("class", "axis")
+                .call(d3.axisLeft(y).ticks(10));
+
+            // Add labels
+            g.append("text")
+                .attr("x", innerWidth/2)
+                .attr("y", innerHeight + 40)
+                .attr("text-anchor", "middle")
+                .text("Transit Access Score");
+
+            g.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -innerHeight/2)
+                .attr("y", -40)
+                .attr("text-anchor", "middle")
+                .text("Walkability Index");
+
+            // Add annotations for clusters
+            const clusters = findClusters(points);
+            clusters.forEach(cluster => {
+                const hull = d3.polygonHull(cluster.points.map(p => [x(p.transit), y(p.walkability)]));
+                if (hull) {
+                    g.append("path")
+                        .attr("class", "cluster")
+                        .attr("d", `M${hull.join("L")}Z`);
+
+                    const centroid = findCentroid(hull);
+                    g.append("text")
+                        .attr("class", "annotation")
+                        .attr("x", centroid[0])
+                        .attr("y", centroid[1])
+                        .text(cluster.name);
+                }
+            });
+
+            function linearRegression(data) {
+                const n = data.length;
+                const x_mean = d3.mean(data, d => d.transit);
+                const y_mean = d3.mean(data, d => d.walkability);
+                
+                const slope = d3.sum(data.map(d => 
+                    (d.transit - x_mean) * (d.walkability - y_mean))) /
+                    d3.sum(data.map(d => Math.pow(d.transit - x_mean, 2)));
+                
+                const intercept = y_mean - slope * x_mean;
+                
+                return {slope, intercept};
+            }
+
+            function findClusters(points) {
+                // Simple k-means implementation for demonstration
+                const k = 3;
+                const clusters = [];
+                
+                // Initialize clusters with random centroids
+                for(let i = 0; i < k; i++) {
+                    clusters.push({
+                        centroid: {
+                            transit: Math.random() * d3.max(points, d => d.transit),
+                            walkability: Math.random() * d3.max(points, d => d.walkability)
+                        },
+                        points: [],
+                        name: ["Urban Core", "Mixed Use", "Suburban"][i]
+                    });
+                }
+
+                // Assign points to nearest centroid
+                points.forEach(point => {
+                    let minDist = Infinity;
+                    let nearestCluster = null;
+                    
+                    clusters.forEach(cluster => {
+                        const dist = Math.sqrt(
+                            Math.pow(point.transit - cluster.centroid.transit, 2) +
+                            Math.pow(point.walkability - cluster.centroid.walkability, 2)
+                        );
+                        if(dist < minDist) {
+                            minDist = dist;
+                            nearestCluster = cluster;
+                        }
+                    });
+                    
+                    nearestCluster.points.push(point);
+                });
+
+                return clusters;
+            }
+
+            function findCentroid(points) {
+                const x = d3.mean(points, d => d[0]);
+                const y = d3.mean(points, d => d[1]);
+                return [x, y];
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Atlanta Walkability Data Guide | Tufte-Style</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .guide-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .section-map {
+            position: relative;
+            height: 600px;
+            background: #f8f8f8;
+            padding: 1rem;
+        }
+
+        .map-node {
+            position: absolute;
+            padding: 1rem;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .map-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+
+        .map-node.active {
+            border-color: #000;
+            border-width: 2px;
+        }
+
+        .node-title {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .node-description {
+            font-size: 0.8em;
+            color: #666;
+            margin: 0;
+            max-width: 200px;
+        }
+
+        .progress-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .progress-section {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .progress-title {
+            font-size: 0.9em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #ddd;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #000;
+            width: 0;
+            transition: width 0.3s ease;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.8em;
+            margin-bottom: 0.5em;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 2rem;
+        }
+
+        .description {
+            font-size: 1em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+            color: #333;
+        }
+
+        .connection-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .connection {
+            stroke: #ccc;
+            stroke-width: 1;
+        }
+
+        .start-button {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            margin-top: 1rem;
+            transition: background 0.3s ease;
+        }
+
+        .start-button:hover {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Atlanta Walkability Data Guide</h1>
+    <p class="subtitle">A Tufte-Style Exploration of Urban Walkability Data</p>
+    <p class="description">
+        This guide walks through the National Walkability Index data for Atlanta, exploring its 
+        structure, context, and applications. Following Edward Tufte's principles of information 
+        design, we present a clear and detailed examination of how walkability is measured and 
+        understood in urban environments.
+    </p>
+
+    <div class="guide-grid">
+        <div class="section-map">
+            <svg class="connection-svg"></svg>
+            <a href="overview/creator.html" class="map-node" style="left: 50px; top: 50px;">
+                <h3 class="node-title">1. Overview</h3>
+                <p class="node-description">
+                    Introduction to the data's origins, context, and purpose
+                </p>
+            </a>
+            <a href="access/instructions.html" class="map-node" style="left: 300px; top: 100px;">
+                <h3 class="node-title">2. Access</h3>
+                <p class="node-description">
+                    How to obtain and prepare the data
+                </p>
+            </a>
+            <a href="standards/structure.html" class="map-node" style="left: 100px; top: 200px;">
+                <h3 class="node-title">3. Standards</h3>
+                <p class="node-description">
+                    Data format and organizational structure
+                </p>
+            </a>
+            <a href="codebook/fields.html" class="map-node" style="left: 350px; top: 250px;">
+                <h3 class="node-title">4. Codebook</h3>
+                <p class="node-description">
+                    Field definitions and value ranges
+                </p>
+            </a>
+            <a href="context/analysis.html" class="map-node" style="left: 150px; top: 350px;">
+                <h3 class="node-title">5. Context</h3>
+                <p class="node-description">
+                    Setting, people, and ethical considerations
+                </p>
+            </a>
+            <a href="uses/applications.html" class="map-node" style="left: 400px; top: 400px;">
+                <h3 class="node-title">6. Uses</h3>
+                <p class="node-description">
+                    Applications and interpretations
+                </p>
+            </a>
+            <a href="sources/references.html" class="map-node" style="left: 250px; top: 500px;">
+                <h3 class="node-title">7. Sources</h3>
+                <p class="node-description">
+                    References and author details
+                </p>
+            </a>
+        </div>
+
+        <div class="progress-container">
+            <h3>Guide Progress</h3>
+            <div class="progress-section">
+                <h4 class="progress-title">Overview</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-section">
+                <h4 class="progress-title">Access</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-section">
+                <h4 class="progress-title">Standards</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-section">
+                <h4 class="progress-title">Codebook</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-section">
+                <h4 class="progress-title">Context</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-section">
+                <h4 class="progress-title">Uses</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="progress-section">
+                <h4 class="progress-title">Sources</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <a href="overview/creator.html" class="start-button">
+                Begin Guide →
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Create connections between nodes
+        const connections = [
+            {source: "1. Overview", target: "2. Access"},
+            {source: "2. Access", target: "3. Standards"},
+            {source: "3. Standards", target: "4. Codebook"},
+            {source: "4. Codebook", target: "5. Context"},
+            {source: "5. Context", target: "6. Uses"},
+            {source: "6. Uses", target: "7. Sources"}
+        ];
+
+        const svg = d3.select(".connection-svg");
+
+        // Function to get node center
+        function getNodeCenter(title) {
+            const node = document.querySelector(`.map-node:has(.node-title:contains('${title}'))`);
+            const rect = node.getBoundingClientRect();
+            const mapRect = document.querySelector('.section-map').getBoundingClientRect();
+            return {
+                x: rect.left - mapRect.left + rect.width / 2,
+                y: rect.top - mapRect.top + rect.height / 2
+            };
+        }
+
+        // Add connections
+        connections.forEach(conn => {
+            const source = getNodeCenter(conn.source);
+            const target = getNodeCenter(conn.target);
+            
+            svg.append("line")
+                .attr("class", "connection")
+                .attr("x1", source.x)
+                .attr("y1", source.y)
+                .attr("x2", target.x)
+                .attr("y2", target.y);
+        });
+
+        // Track progress through localStorage
+        function updateProgress() {
+            const sections = [
+                "overview", "access", "standards", "codebook",
+                "context", "uses", "sources"
+            ];
+
+            sections.forEach(section => {
+                const visited = localStorage.getItem(`visited_${section}`);
+                const fill = document.querySelector(`.progress-section:has(.progress-title:contains('${section}')) .progress-fill`);
+                if (fill) {
+                    fill.style.width = visited ? "100%" : "0%";
+                }
+            });
+        }
+
+        // Mark section as visited when clicking links
+        document.querySelectorAll('.map-node').forEach(node => {
+            node.addEventListener('click', () => {
+                const section = node.querySelector('.node-title').textContent
+                    .toLowerCase().split('.')[1].trim();
+                localStorage.setItem(`visited_${section}`, 'true');
+                updateProgress();
+            });
+        });
+
+        // Initial progress update
+        updateProgress();
+    </script>
+</body>
+</html>

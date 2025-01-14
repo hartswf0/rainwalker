@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sources & References | Walkability Data Guide</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: "ET Book", Georgia, serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.6;
+            background: #fff;
+            color: #333;
+        }
+
+        .sources-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .references-container {
+            position: relative;
+        }
+
+        .reference {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background: #f8f8f8;
+            border-left: 3px solid #000;
+            transition: all 0.3s ease;
+        }
+
+        .reference:hover {
+            transform: translateX(10px);
+            background: #f0f0f0;
+        }
+
+        .reference-citation {
+            font-size: 0.9em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .reference-doi {
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #666;
+        }
+
+        .reference-abstract {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .reference.expanded .reference-abstract {
+            display: block;
+        }
+
+        .author-container {
+            position: sticky;
+            top: 2rem;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .author-profile {
+            margin-bottom: 2rem;
+        }
+
+        .author-name {
+            font-size: 1.1em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .author-title {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .author-bio {
+            font-size: 0.9em;
+            margin: 0;
+        }
+
+        .connection-graph {
+            height: 200px;
+            margin: 1rem 0;
+        }
+
+        .node circle {
+            fill: #fff;
+            stroke: #000;
+            stroke-width: 1.5px;
+        }
+
+        .node text {
+            font-size: 0.8em;
+        }
+
+        .link {
+            stroke: #ccc;
+            stroke-width: 1px;
+        }
+
+        h1 {
+            font-weight: normal;
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .description {
+            color: #666;
+            font-size: 0.9em;
+            max-width: 65ch;
+            margin-bottom: 2rem;
+        }
+
+        .navigation {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .nav-link {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            color: #333;
+            text-decoration: none;
+            border: 1px solid #333;
+        }
+
+        .citation-network {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: #f8f8f8;
+        }
+
+        .network-title {
+            font-size: 1.1em;
+            margin: 0 0 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sources & References</h1>
+    <p class="description">
+        This guide draws from multiple academic and governmental sources to provide a comprehensive 
+        understanding of walkability data. The following references form the foundation of our analysis.
+    </p>
+
+    <div class="sources-grid">
+        <div class="references-container">
+            <div class="reference">
+                <p class="reference-citation">
+                    U.S. Environmental Protection Agency. (2021). "National Walkability Index." 
+                    Smart Location Database Technical Documentation and User Guide.
+                </p>
+                <div class="reference-doi">DOI: 10.2307/j.ctv346nsf</div>
+                <p class="reference-abstract">
+                    Primary documentation for the National Walkability Index methodology, including 
+                    data collection procedures and metric calculations.
+                </p>
+            </div>
+
+            <div class="reference">
+                <p class="reference-citation">
+                    Frank, L. D., et al. (2010). "The development of a walkability index: 
+                    Application to the Neighborhood Quality of Life Study." 
+                    British Journal of Sports Medicine, 44(13), 924-933.
+                </p>
+                <div class="reference-doi">DOI: 10.1136/bjsm.2009.058701</div>
+                <p class="reference-abstract">
+                    Foundational research on walkability metrics and their relationship to 
+                    public health outcomes.
+                </p>
+            </div>
+
+            <div class="reference">
+                <p class="reference-citation">
+                    Ewing, R., & Cervero, R. (2010). "Travel and the Built Environment: 
+                    A Meta-Analysis." Journal of the American Planning Association, 76(3), 265-294.
+                </p>
+                <div class="reference-doi">DOI: 10.1080/01944361003766766</div>
+                <p class="reference-abstract">
+                    Meta-analysis of built environment influences on travel behavior, including 
+                    walkability measures.
+                </p>
+            </div>
+
+            <div class="citation-network">
+                <h3 class="network-title">Citation Network</h3>
+                <div id="network" class="connection-graph"></div>
+            </div>
+        </div>
+
+        <div class="author-container">
+            <div class="author-profile">
+                <h3 class="author-name">Data Guide Authors</h3>
+                <p class="author-title">EPA Office of Sustainable Communities</p>
+                <p class="author-bio">
+                    The EPA's Office of Sustainable Communities developed the National Walkability 
+                    Index as part of their Smart Location Database initiative. The team includes 
+                    urban planners, data scientists, and environmental specialists.
+                </p>
+            </div>
+
+            <div class="author-profile">
+                <h3 class="author-name">Technical Contributors</h3>
+                <p class="author-title">Smart Location Database Team</p>
+                <p class="author-bio">
+                    A multidisciplinary team of GIS specialists, transportation planners, and 
+                    environmental scientists who maintain and update the database.
+                </p>
+            </div>
+
+            <div class="author-profile">
+                <h3 class="author-name">Research Partners</h3>
+                <p class="author-title">Academic & Industry Collaborators</p>
+                <p class="author-bio">
+                    Collaboration with universities and research institutions to validate and 
+                    improve walkability metrics.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <a href="../uses/interpretations.html" class="nav-link">← Back to Interpretations</a>
+        <a href="../index.html" class="nav-link">Return to Guide Home →</a>
+    </div>
+
+    <script>
+        // Create interactive citation network
+        const width = document.querySelector('.connection-graph').clientWidth;
+        const height = 200;
+
+        const svg = d3.select("#network")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // Sample citation network data
+        const nodes = [
+            {id: "EPA", group: 1},
+            {id: "Frank", group: 2},
+            {id: "Ewing", group: 2},
+            {id: "Cervero", group: 2},
+            {id: "Smart Location", group: 1}
+        ];
+
+        const links = [
+            {source: "EPA", target: "Smart Location"},
+            {source: "Frank", target: "EPA"},
+            {source: "Ewing", target: "Frank"},
+            {source: "Cervero", target: "Ewing"},
+            {source: "Smart Location", target: "Frank"}
+        ];
+
+        // Create force simulation
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id))
+            .force("charge", d3.forceManyBody().strength(-50))
+            .force("center", d3.forceCenter(width / 2, height / 2));
+
+        // Add links
+        const link = svg.append("g")
+            .selectAll("line")
+            .data(links)
+            .join("line")
+            .attr("class", "link");
+
+        // Add nodes
+        const node = svg.append("g")
+            .selectAll("g")
+            .data(nodes)
+            .join("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        node.append("circle")
+            .attr("r", 5);
+
+        node.append("text")
+            .attr("x", 8)
+            .attr("y", "0.31em")
+            .text(d => d.id);
+
+        // Update positions
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // Drag functions
+        function dragstarted(event) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
+        }
+
+        function dragged(event) {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+
+        function dragended(event) {
+            if (!event.active) simulation.alphaTarget(0);
+            event.subject.fx = null;
+            event.subject.fy = null;
+        }
+
+        // Add reference expansion
+        document.querySelectorAll('.reference').forEach(ref => {
+            ref.addEventListener('click', () => {
+                ref.classList.toggle('expanded');
+            });
+        });
+    </script>
+</body>
+</html>
